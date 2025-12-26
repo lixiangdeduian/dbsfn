@@ -1,4 +1,3 @@
-
 CALL sp_seed_hospital(
   @department_count,
   @staff_count,
