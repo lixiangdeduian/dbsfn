@@ -27,6 +27,7 @@ mysql --commands -u root -p < triggers.sql
 # 可选：会清空并重新生成大量业务数据
 mysql --commands -u root -p < seed.sql
 mysql --commands -u root -p < security.sql
+mysql --commands -u root -p < routines.sql
 ```
 
 ## 快速核对（在 mysql 客户端内）
