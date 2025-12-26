@@ -4,10 +4,10 @@
 
 ## 目录结构
 
-- `schema.sql`：入口脚本（会 `SOURCE sql/schema/*`）
-- `triggers.sql`：入口脚本（会 `SOURCE sql/triggers/*`）
-- `seed.sql`：入口脚本（会 `SOURCE sql/seed/*`，会 TRUNCATE 并生成大量数据）
-- `security.sql`：入口脚本（会 `SOURCE sql/security/*`）
+- `schema.sql`：入口脚本（会 `\.` `sql/schema/*`）
+- `triggers.sql`：入口脚本（会 `\.` `sql/triggers/*`）
+- `seed.sql`：入口脚本（会 `\.` `sql/seed/*`，会 TRUNCATE 并生成大量数据）
+- `security.sql`：入口脚本（会 `\.` `sql/security/*`）
 - `sql/`：拆分后的脚本
   - `sql/schema/`：库/表结构
   - `sql/triggers/`：触发器
@@ -17,14 +17,16 @@
 
 ## 执行顺序
 
-注意：入口脚本依赖相对路径 `SOURCE ...`，请在本目录下执行（即当前工作目录是 `database/`）。
+注意：入口脚本依赖相对路径 `\.`（等价于 `SOURCE`），请在本目录下执行（即当前工作目录是 `database/`）。
+如果你的 `mysql` 客户端启用了 `--disable-named-commands`（或在 `~/.my.cnf` 里配置了同名选项），`SOURCE` 会被当成 SQL 发给服务端并报语法错；本项目入口脚本已改用 `\.` 以兼容该配置。
 
 ```bash
-mysql -u root -p < schema.sql
-mysql -u root -p < triggers.sql
+# MySQL 9.x 在非交互模式下默认不处理本地命令（如 `\.` / `SOURCE`），需要显式开启
+mysql --commands -u root -p < schema.sql
+mysql --commands -u root -p < triggers.sql
 # 可选：会清空并重新生成大量业务数据
-mysql -u root -p < seed.sql
-mysql -u root -p < security.sql
+mysql --commands -u root -p < seed.sql
+mysql --commands -u root -p < security.sql
 ```
 
 ## 快速核对（在 mysql 客户端内）
@@ -35,4 +37,3 @@ SHOW TABLES;
 SHOW TRIGGERS;
 SHOW FULL TABLES WHERE Table_type='VIEW';
 ```
-
