@@ -1,0 +1,86 @@
+-- 医院管理系统（MySQL 9.x）- 触发器定义
+USE hospital_test;
+
+DELIMITER $$
+
+-- 允许重复执行：先删除同名触发器
+DROP TRIGGER IF EXISTS trg_department_bi_audit$$
+DROP TRIGGER IF EXISTS trg_department_bu_audit$$
+DROP TRIGGER IF EXISTS trg_staff_bi_audit$$
+DROP TRIGGER IF EXISTS trg_staff_bu_audit$$
+DROP TRIGGER IF EXISTS trg_staff_department_bi_audit$$
+DROP TRIGGER IF EXISTS trg_staff_department_bu_audit$$
+DROP TRIGGER IF EXISTS trg_patient_bi_audit$$
+DROP TRIGGER IF EXISTS trg_patient_bu_audit$$
+DROP TRIGGER IF EXISTS trg_user_account_bi_audit$$
+DROP TRIGGER IF EXISTS trg_user_account_bu_audit$$
+DROP TRIGGER IF EXISTS trg_doctor_schedule_bi_audit$$
+DROP TRIGGER IF EXISTS trg_doctor_schedule_bu_audit$$
+DROP TRIGGER IF EXISTS trg_registration_bi_audit$$
+DROP TRIGGER IF EXISTS trg_registration_bu_audit$$
+DROP TRIGGER IF EXISTS trg_encounter_bi_audit$$
+DROP TRIGGER IF EXISTS trg_encounter_bu_audit$$
+DROP TRIGGER IF EXISTS trg_diagnosis_bi_audit$$
+DROP TRIGGER IF EXISTS trg_diagnosis_bu_audit$$
+DROP TRIGGER IF EXISTS trg_ward_bi_audit$$
+DROP TRIGGER IF EXISTS trg_ward_bu_audit$$
+DROP TRIGGER IF EXISTS trg_bed_bi_audit$$
+DROP TRIGGER IF EXISTS trg_bed_bu_audit$$
+DROP TRIGGER IF EXISTS trg_admission_bi_audit$$
+DROP TRIGGER IF EXISTS trg_admission_bu_audit$$
+DROP TRIGGER IF EXISTS trg_bed_assignment_bi_audit$$
+DROP TRIGGER IF EXISTS trg_bed_assignment_bu_audit$$
+DROP TRIGGER IF EXISTS trg_drug_bi_audit$$
+DROP TRIGGER IF EXISTS trg_drug_bu_audit$$
+DROP TRIGGER IF EXISTS trg_prescription_bi_audit$$
+DROP TRIGGER IF EXISTS trg_prescription_bu_audit$$
+DROP TRIGGER IF EXISTS trg_prescription_item_bi_audit$$
+DROP TRIGGER IF EXISTS trg_prescription_item_bu_audit$$
+DROP TRIGGER IF EXISTS trg_dispense_bi_audit$$
+DROP TRIGGER IF EXISTS trg_dispense_bu_audit$$
+DROP TRIGGER IF EXISTS trg_lab_test_bi_audit$$
+DROP TRIGGER IF EXISTS trg_lab_test_bu_audit$$
+DROP TRIGGER IF EXISTS trg_lab_order_bi_audit$$
+DROP TRIGGER IF EXISTS trg_lab_order_bu_audit$$
+DROP TRIGGER IF EXISTS trg_lab_order_item_bi_audit$$
+DROP TRIGGER IF EXISTS trg_lab_order_item_bu_audit$$
+DROP TRIGGER IF EXISTS trg_lab_result_bi_audit$$
+DROP TRIGGER IF EXISTS trg_lab_result_bu_audit$$
+DROP TRIGGER IF EXISTS trg_charge_catalog_bi_audit$$
+DROP TRIGGER IF EXISTS trg_charge_catalog_bu_audit$$
+DROP TRIGGER IF EXISTS trg_charge_bi_audit$$
+DROP TRIGGER IF EXISTS trg_charge_bu_audit$$
+DROP TRIGGER IF EXISTS trg_invoice_bi_audit$$
+DROP TRIGGER IF EXISTS trg_invoice_bu_audit$$
+DROP TRIGGER IF EXISTS trg_invoice_line_bi_audit$$
+DROP TRIGGER IF EXISTS trg_invoice_line_bu_audit$$
+DROP TRIGGER IF EXISTS trg_payment_bi_audit$$
+DROP TRIGGER IF EXISTS trg_payment_bu_audit$$
+DROP TRIGGER IF EXISTS trg_refund_bi_audit$$
+DROP TRIGGER IF EXISTS trg_refund_bu_audit$$
+DROP TRIGGER IF EXISTS trg_registration_bi_quota_check$$
+DROP TRIGGER IF EXISTS trg_bed_assignment_bi_no_overlap$$
+DROP TRIGGER IF EXISTS trg_bed_assignment_bu_no_overlap$$
+DROP TRIGGER IF EXISTS trg_diagnosis_bi_primary_unique$$
+DROP TRIGGER IF EXISTS trg_diagnosis_bu_primary_unique$$
+DROP TRIGGER IF EXISTS trg_prescription_item_bi_calc_amount$$
+DROP TRIGGER IF EXISTS trg_prescription_item_bu_calc_amount$$
+DROP TRIGGER IF EXISTS trg_prescription_item_ai_update_total$$
+DROP TRIGGER IF EXISTS trg_prescription_item_au_update_total$$
+DROP TRIGGER IF EXISTS trg_prescription_item_ad_update_total$$
+DROP TRIGGER IF EXISTS trg_lab_order_item_bi_calc_amount$$
+DROP TRIGGER IF EXISTS trg_lab_order_item_bu_calc_amount$$
+DROP TRIGGER IF EXISTS trg_lab_order_item_ai_update_total$$
+DROP TRIGGER IF EXISTS trg_lab_order_item_au_update_total$$
+DROP TRIGGER IF EXISTS trg_lab_order_item_ad_update_total$$
+DROP TRIGGER IF EXISTS trg_charge_bi_calc_amount$$
+DROP TRIGGER IF EXISTS trg_charge_bu_calc_amount$$
+DROP TRIGGER IF EXISTS trg_invoice_line_ai_recalc$$
+DROP TRIGGER IF EXISTS trg_invoice_line_ad_recalc$$
+DROP TRIGGER IF EXISTS trg_refund_bi_amount_check$$
+DROP TRIGGER IF EXISTS trg_payment_ai_update_invoice$$
+DROP TRIGGER IF EXISTS trg_payment_au_update_invoice$$
+DROP TRIGGER IF EXISTS trg_payment_ad_update_invoice$$
+DROP TRIGGER IF EXISTS trg_refund_ai_update_invoice$$
+DROP TRIGGER IF EXISTS trg_refund_ad_update_invoice$$
+
