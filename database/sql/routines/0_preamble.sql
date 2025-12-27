@@ -19,6 +19,7 @@ DROP PROCEDURE IF EXISTS sp_prescription_create$$
 DROP PROCEDURE IF EXISTS sp_prescription_add_item$$
 DROP PROCEDURE IF EXISTS sp_prescription_bill_sync$$
 DROP PROCEDURE IF EXISTS sp_dispense_create$$
+DROP PROCEDURE IF EXISTS sp_dispense_prescription$$
 DROP PROCEDURE IF EXISTS sp_lab_order_create$$
 DROP PROCEDURE IF EXISTS sp_lab_order_add_item$$
 DROP PROCEDURE IF EXISTS sp_lab_order_mark_collected$$

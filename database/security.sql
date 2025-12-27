@@ -4,4 +4,5 @@ USE hospital_test;
 \. sql/security/0_roles.sql
 \. sql/security/1_views_public.sql
 \. sql/security/2_views_patient.sql
-\. sql/security/3_grants.sql
+\. sql/security/3_views_staff.sql
+\. sql/security/4_grants.sql

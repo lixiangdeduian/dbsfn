@@ -83,4 +83,18 @@ DROP TRIGGER IF EXISTS trg_payment_au_update_invoice$$
 DROP TRIGGER IF EXISTS trg_payment_ad_update_invoice$$
 DROP TRIGGER IF EXISTS trg_refund_ai_update_invoice$$
 DROP TRIGGER IF EXISTS trg_refund_ad_update_invoice$$
-
+DROP TRIGGER IF EXISTS trg_encounter_bu_set_end_time$$
+DROP TRIGGER IF EXISTS trg_encounter_au_sync_registration_status$$
+DROP TRIGGER IF EXISTS trg_registration_bu_cancel_guard$$
+DROP TRIGGER IF EXISTS trg_admission_bi_one_active_per_patient$$
+DROP TRIGGER IF EXISTS trg_admission_bu_discharge_close_bed$$
+DROP TRIGGER IF EXISTS trg_admission_au_discharge_close_bed$$
+DROP TRIGGER IF EXISTS trg_bed_assignment_bi_validate_bed$$
+DROP TRIGGER IF EXISTS trg_bed_assignment_bu_validate_bed$$
+DROP TRIGGER IF EXISTS trg_dispense_bi_validate_prescription$$
+-- 兼容旧版本：曾存在的“发药联动更新处方状态”触发器（现已改为存储过程实现）
+DROP TRIGGER IF EXISTS trg_dispense_ai_update_prescription_status$$
+DROP TRIGGER IF EXISTS trg_dispense_au_update_prescription_status$$
+DROP TRIGGER IF EXISTS trg_dispense_ad_update_prescription_status$$
+DROP TRIGGER IF EXISTS trg_lab_result_ai_set_order_reported$$
+DROP TRIGGER IF EXISTS trg_lab_result_au_set_order_reported$$

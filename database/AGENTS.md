@@ -1,46 +1,50 @@
 # Repository Guidelines
 
+This repository contains a MySQL-based “Hospital Management System” database design delivered as executable SQL scripts. The top-level `*.sql` files are **entry scripts** that `\.` (SOURCE) the split modules under `sql/`.
+
 ## Project Structure & Module Organization
 
-This repository is a MySQL-based “Hospital Management System” database design delivered as executable SQL scripts:
-
-- `schema.sql`: database + table definitions, keys, constraints, indexes (run first).
-- `triggers.sql`: audit/business triggers (run second).
-- `security.sql`: roles, views, and grants (run last).
-- `task.md`: requirements and design notes.
+- `schema.sql`: database + table/constraint definitions (sources `sql/schema/*`).
+- `triggers.sql`: trigger definitions (sources `sql/triggers/*`).
+- `seed.sql`: optional data generator (sources `sql/seed/*`; **truncates** and re-populates data).
+- `security.sql`: roles, views, grants (sources `sql/security/*`).
+- `routines.sql`: stored procedures/functions (sources `sql/routines/*`).
+- `sql/`: split modules, organized by domain; files are prefixed with numbers to enforce execution order (e.g., `sql/schema/0_init.sql`).
 
 ## Build, Test, and Development Commands
 
-There is no application build; development is done by executing SQL against a local MySQL server (tested with MySQL 9.x).
+Run from this directory (`database/`) so relative `\.` paths resolve correctly.
 
-- Create/refresh schema (idempotent objects use `IF NOT EXISTS`):
-  - `mysql -u root -p < schema.sql`
-- Add triggers:
-  - `mysql -u root -p < triggers.sql`
-- Add roles/views/grants:
-  - `mysql -u root -p < security.sql`
-- Quick sanity checks (run in `mysql`):
-  - `USE hospital_mgmt; SHOW TABLES; SHOW TRIGGERS; SHOW FULL TABLES WHERE Table_type='VIEW';`
+```bash
+mysql --commands -u root -p < schema.sql
+mysql --commands -u root -p < triggers.sql
+mysql --commands -u root -p < seed.sql      # optional, destructive
+mysql --commands -u root -p < security.sql
+mysql --commands -u root -p < routines.sql
+# optional: grant roles EXECUTE on procedures
+mysql --commands -u root -p < sql/security/5_grants_routines.sql
+```
+
+Quick sanity checks (inside `mysql`):
+
+```sql
+USE hospital_test;
+SHOW TABLES;
+SHOW TRIGGERS;
+SHOW FULL TABLES WHERE Table_type='VIEW';
+```
 
 ## Coding Style & Naming Conventions
 
-- Naming: use lowercase `snake_case` for tables/columns; keep domain terms consistent with existing files.
-- Keys/indexes: `pk` (implicit), `fk_*`, `uq_*`, `ix_*` prefixes as used in `schema.sql`.
-- Views/roles/triggers: `v_*`, `role_*`, `trg_<table>_<timing>_<purpose>` (examples already in `security.sql`/`triggers.sql`).
-- SQL style: 2-space indentation, one column per line, explicit `ENGINE=InnoDB`, and `utf8mb4` settings in `schema.sql`.
+- SQL formatting: 2-space indentation; uppercase keywords (`CREATE TABLE`, `FOREIGN KEY`).
+- Naming: lowercase `snake_case` for tables/columns; indexes/constraints use `ix_*`, `uq_*`, `fk_*`, `ck_*`; triggers use `trg_*`.
+- Prefer additive migrations: keep files modular and update the relevant `sql/<module>/` file rather than editing entry scripts.
 
 ## Testing Guidelines
 
-No automated test suite is included. Treat “tests” as executable verification:
-
-- Scripts must be rerunnable: prefer `CREATE ... IF NOT EXISTS` and `DROP TRIGGER IF EXISTS` patterns.
-- When changing constraints/triggers, validate with a minimal scenario (e.g., insert rows that should pass/fail) and ensure errors are informative.
+There is no automated test harness in this repo. Validate changes by executing entry scripts in order and running targeted queries for the affected tables/triggers (e.g., insert/update flows that should `SIGNAL` on invalid states).
 
 ## Commit & Pull Request Guidelines
 
-No Git history is present in this folder. If you add VCS, use short, scoped messages like `schema: add bed_assignment constraints` and include:
-
-- What changed (tables/columns/constraints/triggers/views).
-- Execution order and any backward-incompatible changes.
-- Example verification queries or repro steps.
-
+- Commits in history use short, descriptive messages (often Chinese) that state what changed (e.g., “拆分数据库文件”, “添加游标和一些过程”).
+- Keep PRs focused: describe the business rule changed, list affected scripts (e.g., `sql/triggers/5_amount_calc.sql`), and include the exact verification commands you ran.

@@ -9,4 +9,5 @@ USE hospital_test;
 \. sql/triggers/5_amount_calc.sql
 \. sql/triggers/6_invoice_line_recalc.sql
 \. sql/triggers/7_refund_amount_check.sql
+\. sql/triggers/9_status_transitions.sql
 \. sql/triggers/8_payment_refund_update_invoice.sql

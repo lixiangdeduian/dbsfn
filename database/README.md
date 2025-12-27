@@ -28,6 +28,8 @@ mysql --commands -u root -p < triggers.sql
 mysql --commands -u root -p < seed.sql
 mysql --commands -u root -p < security.sql
 mysql --commands -u root -p < routines.sql
+# 若需要授予各角色执行存储过程（EXECUTE）权限，请在 routines.sql 之后执行：
+mysql --commands -u root -p < sql/security/5_grants_routines.sql
 ```
 
 ## 快速核对（在 mysql 客户端内）

@@ -391,3 +391,154 @@ BEGIN
 
   COMMIT;
 END$$
+
+-- 功能：完成一次发药（dispense），并将处方状态置为 DISPENSED，同时同步处方费用（charge）。
+-- 与 sp_dispense_create 的区别：支持传入 dispensed_at（例如补录历史发药）。
+DROP PROCEDURE IF EXISTS sp_dispense_prescription$$
+CREATE PROCEDURE sp_dispense_prescription(
+  IN p_prescription_id BIGINT UNSIGNED,
+  IN p_pharmacist_id BIGINT UNSIGNED,
+  IN p_dispensed_at DATETIME(3),
+  IN p_note VARCHAR(500),
+  OUT o_dispense_id BIGINT UNSIGNED,
+  OUT o_charge_id BIGINT UNSIGNED
+)
+BEGIN
+  DECLARE v_status ENUM('DRAFT','ISSUED','DISPENSED','CANCELLED');
+  DECLARE v_encounter_id BIGINT UNSIGNED;
+  DECLARE v_total_amount DECIMAL(12,2);
+  DECLARE v_charge_item_id BIGINT UNSIGNED;
+  DECLARE v_existing_charge_id BIGINT UNSIGNED;
+  DECLARE v_cnt INT DEFAULT 0;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  IF p_prescription_id IS NULL OR p_pharmacist_id IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'prescription_id and pharmacist_id are required';
+  END IF;
+
+  START TRANSACTION;
+
+  SELECT p.status
+    INTO v_status
+  FROM prescription p
+  WHERE p.prescription_id = p_prescription_id
+  FOR UPDATE;
+
+  IF v_status IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'prescription not found';
+  END IF;
+
+  IF v_status <> 'ISSUED' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'only ISSUED prescription can be dispensed';
+  END IF;
+
+  SELECT COUNT(*)
+    INTO v_cnt
+  FROM prescription_item pi
+  WHERE pi.prescription_id = p_prescription_id
+  FOR UPDATE;
+
+  IF v_cnt = 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'prescription has no items';
+  END IF;
+
+  SELECT COUNT(*)
+    INTO v_cnt
+  FROM staff s
+  WHERE s.staff_id = p_pharmacist_id
+    AND s.is_active = 1
+  FOR UPDATE;
+
+  IF v_cnt = 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'pharmacist not found or inactive';
+  END IF;
+
+  INSERT INTO dispense (
+    prescription_id,
+    pharmacist_id,
+    dispensed_at,
+    status,
+    note
+  )
+  VALUES (
+    p_prescription_id,
+    p_pharmacist_id,
+    COALESCE(p_dispensed_at, CURRENT_TIMESTAMP(3)),
+    'DISPENSED',
+    p_note
+  );
+
+  SET o_dispense_id = LAST_INSERT_ID();
+
+  UPDATE prescription p
+  SET
+    p.status = 'DISPENSED',
+    p.note = COALESCE(p_note, p.note)
+  WHERE p.prescription_id = p_prescription_id;
+
+  -- 同步处方费用（避免调用包含事务控制的过程造成隐式 COMMIT）
+  SELECT p.encounter_id, p.total_amount
+    INTO v_encounter_id, v_total_amount
+  FROM prescription p
+  WHERE p.prescription_id = p_prescription_id
+  FOR UPDATE;
+
+  SELECT cc.charge_item_id
+    INTO v_charge_item_id
+  FROM charge_catalog cc
+  WHERE cc.item_code = 'RX_TOTAL' AND cc.is_active = 1
+  LIMIT 1
+  FOR UPDATE;
+
+  IF v_charge_item_id IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'charge_catalog RX_TOTAL not found or inactive';
+  END IF;
+
+  SELECT c.charge_id
+    INTO v_existing_charge_id
+  FROM charge c
+  WHERE c.source_type = 'PRESCRIPTION'
+    AND c.source_id = p_prescription_id
+    AND c.encounter_id = v_encounter_id
+  LIMIT 1
+  FOR UPDATE;
+
+  IF v_existing_charge_id IS NULL THEN
+    INSERT INTO charge (
+      charge_no,
+      encounter_id,
+      source_type,
+      source_id,
+      charge_item_id,
+      quantity,
+      unit_price,
+      status
+    )
+    VALUES (
+      CONCAT('chg_', UUID_SHORT()),
+      v_encounter_id,
+      'PRESCRIPTION',
+      p_prescription_id,
+      v_charge_item_id,
+      1.00,
+      ROUND(IFNULL(v_total_amount, 0.00), 2),
+      'UNBILLED'
+    );
+    SET o_charge_id = LAST_INSERT_ID();
+  ELSE
+    UPDATE charge c
+    SET
+      c.charge_item_id = v_charge_item_id,
+      c.quantity = 1.00,
+      c.unit_price = ROUND(IFNULL(v_total_amount, 0.00), 2)
+    WHERE c.charge_id = v_existing_charge_id;
+    SET o_charge_id = v_existing_charge_id;
+  END IF;
+
+  COMMIT;
+END$$
