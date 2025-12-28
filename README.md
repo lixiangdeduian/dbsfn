@@ -2,6 +2,22 @@
 
 一个基于 Python Flask + React + MySQL 的社区医院门诊管理系统，实现患者预约、挂号、就诊、缴费、员工管理、排班管理、统计查询等全流程功能。
 
+## 🌟 新增功能：基于角色的权限控制系统
+
+系统现已支持**8个不同角色**的权限管理，包括：
+- **超级管理员**：全库权限，直接访问数据库
+- **医生、护士、药剂师、检验技师、收费员、前台接待**：各自独立的权限和视图
+- **患者**：只读自己的数据
+
+**特性：**
+- ✅ JWT令牌认证
+- ✅ 动态菜单（根据角色显示）
+- ✅ 存储过程调用（含游标示例）
+- ✅ 数据库视图安全（行级和列级控制）
+- ✅ 只读字段标识
+
+**快速开始：** 查看 [QUICK_START_ROLES.md](QUICK_START_ROLES.md) 或 [ROLE_BASED_ACCESS.md](ROLE_BASED_ACCESS.md)
+
 ## 📋 目录
 
 - [功能特性](#功能特性)
@@ -167,6 +183,7 @@ mysql --commands -u root -p < schema.sql
 
 mysql --commands -u root -p < triggers.sql
 mysql --commands -u root -p < seed.sql
+mysql -u root -p --default-character-set=utf8mb4 hospital_test < seed.sql
 mysql --commands -u root -p < security.sql
 mysql --commands -u root -p < routines.sql
 ```

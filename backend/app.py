@@ -4,6 +4,11 @@ from config import Config
 from models import db
 from datetime import datetime, timedelta
 import routes
+from routes.auth import auth_bp
+from routes.procedures import procedures_bp
+from routes.pharmacy import pharmacy_bp
+from routes.lab import lab_bp
+from routes.inpatient import inpatient_bp
 
 def create_app():
     """创建并配置Flask应用"""
@@ -12,9 +17,14 @@ def create_app():
     
     # 初始化扩展
     db.init_app(app)
-    CORS(app, origins=Config.CORS_ORIGINS)
+    CORS(app, origins=Config.CORS_ORIGINS, supports_credentials=True)
     
     # 注册蓝图
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')  # 认证路由
+    app.register_blueprint(procedures_bp, url_prefix='/api/procedures')  # 存储过程
+    app.register_blueprint(pharmacy_bp, url_prefix='/api/pharmacy')  # 药房管理
+    app.register_blueprint(lab_bp, url_prefix='/api/lab')  # 检验管理
+    app.register_blueprint(inpatient_bp, url_prefix='/api/inpatients')  # 住院管理
     app.register_blueprint(routes.patient_bp, url_prefix='/api/patients')
     app.register_blueprint(routes.schedule_bp, url_prefix='/api/schedules')
     app.register_blueprint(routes.registration_bp, url_prefix='/api/registrations')
