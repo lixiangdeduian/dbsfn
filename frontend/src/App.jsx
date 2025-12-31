@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { Layout, Menu, Button, Dropdown, message } from 'antd'
+import { Layout, Menu, Select, Space, Tag, message } from 'antd'
 import {
   DashboardOutlined,
   UserOutlined,
+  TeamOutlined,
   CalendarOutlined,
   FileTextOutlined,
   DollarOutlined,
-  TeamOutlined,
   ApartmentOutlined,
   BarChartOutlined,
-  LogoutOutlined,
-  UserSwitchOutlined,
+  UserSwitchOutlined
 } from '@ant-design/icons'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import Login from './pages/Login'
+import { Link, useLocation } from 'react-router-dom'
 import axios from 'axios'
 
 // 页面组件
@@ -39,41 +37,42 @@ import LabList from './pages/LabList'
 import InpatientList from './pages/InpatientList'
 
 const { Header, Sider, Content } = Layout
+const { Option } = Select
 
 function App() {
   const location = useLocation()
-  const navigate = useNavigate()
-  const [user, setUser] = useState(null)
+  const [currentRole, setCurrentRole] = useState('admin')
+  const [roles, setRoles] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // 配置axios默认请求头
+  // 加载角色列表
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      const savedUser = localStorage.getItem('user')
-      if (savedUser) {
-        setUser(JSON.parse(savedUser))
-      }
-    }
-    setLoading(false)
+    loadRoles()
   }, [])
 
-  const handleLogin = (userData) => {
-    setUser(userData)
-    axios.defaults.headers.common['Authorization'] = `Bearer ${localStorage.getItem('token')}`
+  // 加载本地保存的角色
+  useEffect(() => {
+    const savedRole = localStorage.getItem('currentRole')
+    if (savedRole) {
+      setCurrentRole(savedRole)
+      // 设置 axios 默认请求头
+      axios.defaults.headers.common['X-Role'] = savedRole
+    }
+  }, [])
+
+  const loadRoles = async () => {
+    try {
+      const response = await axios.get('/api/auth/roles')
+      setRoles(response.data.data || [])
+    } catch (error) {
+      console.error('加载角色列表失败:', error)
+      message.error('加载角色列表失败')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    delete axios.defaults.headers.common['Authorization']
-    setUser(null)
-    message.success('已退出登录')
-    navigate('/login')
-  }
-
-  // 根据角色获取菜单项
+  // 定义所有菜单项
   const getAllMenuItems = () => [
     {
       key: '/',
@@ -103,30 +102,12 @@ function App() {
       key: '/encounters',
       icon: <FileTextOutlined />,
       label: <Link to="/encounters">就诊管理</Link>,
-      roles: ['admin', 'doctor', 'nurse']
+      roles: ['admin', 'doctor']
     },
     {
       key: '/invoices',
       icon: <DollarOutlined />,
       label: <Link to="/invoices">收费管理</Link>,
-      roles: ['admin', 'cashier']
-    },
-    {
-      key: '/staff',
-      icon: <TeamOutlined />,
-      label: <Link to="/staff">员工管理</Link>,
-      roles: ['admin']
-    },
-    {
-      key: '/departments',
-      icon: <ApartmentOutlined />,
-      label: <Link to="/departments">科室管理</Link>,
-      roles: ['admin']
-    },
-    {
-      key: '/statistics',
-      icon: <BarChartOutlined />,
-      label: <Link to="/statistics">统计报表</Link>,
       roles: ['admin', 'cashier']
     },
     {
@@ -147,12 +128,30 @@ function App() {
       label: <Link to="/inpatients">住院管理</Link>,
       roles: ['admin', 'nurse']
     },
+    {
+      key: '/staff',
+      icon: <TeamOutlined />,
+      label: <Link to="/staff">员工管理</Link>,
+      roles: ['admin']
+    },
+    {
+      key: '/departments',
+      icon: <ApartmentOutlined />,
+      label: <Link to="/departments">科室管理</Link>,
+      roles: ['admin']
+    },
+    {
+      key: '/statistics',
+      icon: <BarChartOutlined />,
+      label: <Link to="/statistics">统计报表</Link>,
+      roles: ['admin', 'cashier']
+    }
   ]
 
+  // 根据当前角色过滤菜单
   const getFilteredMenuItems = () => {
-    if (!user) return []
     const allMenus = getAllMenuItems()
-    return allMenus.filter(item => item.roles.includes(user.role))
+    return allMenus.filter(item => item.roles.includes(currentRole))
   }
 
   const menuItems = getFilteredMenuItems()
@@ -169,88 +168,106 @@ function App() {
     if (path.startsWith('/staff')) return '/staff'
     if (path.startsWith('/departments')) return '/departments'
     if (path.startsWith('/statistics')) return '/statistics'
+    if (path.startsWith('/pharmacy')) return '/pharmacy'
+    if (path.startsWith('/lab')) return '/lab'
+    if (path.startsWith('/inpatients')) return '/inpatients'
     return '/'
   }
+
+  const handleRoleChange = async (value) => {
+    try {
+      const response = await axios.post('/api/auth/switch-role', { role: value })
+      if (response.data.success) {
+        setCurrentRole(value)
+        // 保存到本地存储
+        localStorage.setItem('currentRole', value)
+        // 更新 axios 默认请求头
+        axios.defaults.headers.common['X-Role'] = value
+        message.success(`已切换到：${response.data.data.role_name}`)
+      }
+    } catch (error) {
+      message.error('切换角色失败')
+      console.error('切换角色失败:', error)
+    }
+  }
+
+  const getCurrentRoleInfo = () => {
+    return roles.find(r => r.key === currentRole) || { name: '管理员', color: '#f50' }
+  }
+
+  const roleInfo = getCurrentRoleInfo()
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '50px' }}>加载中...</div>
   }
 
-  // 登录页面
-  if (location.pathname === '/login' || !user) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login onLogin={handleLogin} />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    )
-  }
-
-  // 用户下拉菜单
-  const userMenu = {
-    items: [
-      {
-        key: 'role',
-        label: <div><strong>当前角色：</strong>{user.role_name}</div>,
-        disabled: true
-      },
-      {
-        type: 'divider'
-      },
-      {
-        key: 'switch',
-        icon: <UserSwitchOutlined />,
-        label: '切换角色',
-        onClick: () => {
-          handleLogout()
-          navigate('/login')
-        }
-      },
-      {
-        key: 'logout',
-        icon: <LogoutOutlined />,
-        label: '退出登录',
-        onClick: handleLogout
-      }
-    ]
-  }
-
   return (
-    <Layout className="app-layout">
-      <Header className="app-header">
-        <div className="app-logo">社区医院门诊管理系统</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '14px' }}>
-            欢迎您，{user.role_name}
+    <Layout style={{ minHeight: '100vh' }}>
+      <Header style={{
+        background: 'linear-gradient(135deg, rgba(4, 168, 250, 0.27) 0%, rgb(109, 178, 219) 100%)',
+        padding: '0 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ fontSize: '32px' }}>🏥</div>
+          <div style={{ 
+            fontSize: '24px',
+            fontWeight: 700,
+            color: 'white',
+            textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
+          }}>
+            社区医院门诊管理系统
           </div>
-          <Dropdown menu={userMenu} placement="bottomRight">
-            <Button 
-              type="text" 
-              style={{ 
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <UserOutlined style={{ fontSize: '18px' }} />
-              {user.username}
-            </Button>
-          </Dropdown>
         </div>
+
+        <Space size="large">
+          <Space align="center">
+            <UserSwitchOutlined style={{ fontSize: '18px', color: 'white' }} />
+            <span style={{ color: 'white', fontSize: '14px' }}>切换角色：</span>
+            <Select
+              value={currentRole}
+              onChange={handleRoleChange}
+              style={{ width: 160 }}
+              size="large"
+            >
+              {roles.map(role => (
+                <Option key={role.key} value={role.key}>
+                  <Tag color={role.color} style={{ marginRight: 4 }}>
+                    {role.name}
+                  </Tag>
+                </Option>
+              ))}
+            </Select>
+          </Space>
+          <Tag 
+            color={roleInfo.color} 
+            style={{ 
+              fontSize: '14px', 
+              padding: '6px 16px',
+              borderRadius: '20px',
+              fontWeight: 600
+            }}
+          >
+            当前：{roleInfo.name}
+          </Tag>
+        </Space>
       </Header>
+
       <Layout>
         <Sider 
-          width={240} 
+          width={240}
           theme="light"
           style={{
             background: 'white',
             boxShadow: '2px 0 8px rgba(0, 0, 0, 0.06)',
             overflow: 'auto',
-            height: '100vh',
-            position: 'sticky',
-            top: 0,
-            left: 0
+            height: 'calc(100vh - 64px)',
+            position: 'fixed',
+            left: 0,
+            top: 64
           }}
         >
           <div style={{
@@ -259,23 +276,30 @@ function App() {
             textAlign: 'center',
             fontSize: '16px',
             fontWeight: 600,
-            color: '#1e3a8a'
+            color: '#1e3a8a',
+            background: 'linear-gradient(135deg, rgba(4, 168, 250, 0.1) 0%, rgba(109, 178, 219, 0.1) 100%)'
           }}>
             功能导航
           </div>
+
           <Menu
             mode="inline"
             selectedKeys={[getSelectedKey()]}
-            style={{ 
-              height: 'calc(100% - 80px)', 
-              borderRight: 0,
-              padding: '12px 8px'
-            }}
             items={menuItems}
+            style={{ 
+              borderRight: 0,
+              padding: '12px 8px',
+              fontSize: '15px'
+            }}
           />
         </Sider>
-        <Layout style={{ padding: '0' }}>
-          <Content className="app-content">
+
+        <Layout style={{ marginLeft: 240 }}>
+          <Content style={{
+            margin: '24px',
+            minHeight: 'calc(100vh - 112px)',
+            background: '#f0f2f5'
+          }}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/patients" element={<PatientList />} />
@@ -299,6 +323,7 @@ function App() {
               <Route path="/pharmacy" element={<PharmacyList />} />
               <Route path="/lab" element={<LabList />} />
               <Route path="/inpatients" element={<InpatientList />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Content>
         </Layout>
@@ -308,4 +333,3 @@ function App() {
 }
 
 export default App
-

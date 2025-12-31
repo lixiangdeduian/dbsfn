@@ -2,21 +2,31 @@
 
 一个基于 Python Flask + React + MySQL 的社区医院门诊管理系统，实现患者预约、挂号、就诊、缴费、员工管理、排班管理、统计查询等全流程功能。
 
-## 🌟 新增功能：基于角色的权限控制系统
+## 🌟 核心功能：基于角色的权限控制系统
 
-系统现已支持**8个不同角色**的权限管理，包括：
-- **超级管理员**：全库权限，直接访问数据库
-- **医生、护士、药剂师、检验技师、收费员、前台接待**：各自独立的权限和视图
-- **患者**：只读自己的数据
+系统支持**8个不同角色**的权限管理，**无需登录，右上角直接切换角色**：
 
-**特性：**
-- ✅ JWT令牌认证
-- ✅ 动态菜单（根据角色显示）
-- ✅ 存储过程调用（含游标示例）
-- ✅ 数据库视图安全（行级和列级控制）
-- ✅ 只读字段标识
+| 角色 | 功能菜单 | 主要权限 |
+|------|---------|---------|
+| **超级管理员** | 12个 | 全库权限，所有功能 |
+| **医生** | 5个 | 患者诊疗、处方开立、检验开单 |
+| **护士** | 4个 | 住院管理、床位分配、护理记录 |
+| **药剂师** | 3个 | 药房管理、处方调剂、发药 |
+| **检验技师** | 3个 | 检验管理、结果录入、报告审核 |
+| **收费员** | 4个 | 收费开票、支付管理、统计报表 |
+| **前台接待** | 4个 | 患者登记、预约挂号、信息维护 |
 
-**快速开始：** 查看 [QUICK_START_ROLES.md](QUICK_START_ROLES.md) 或 [ROLE_BASED_ACCESS.md](ROLE_BASED_ACCESS.md)
+**核心特性：**
+- ✅ **右上角角色切换** - 无需登录，一键切换
+- ✅ **动态菜单** - 根据角色显示对应功能
+- ✅ **存储过程调用** - 包含3个使用游标的存储过程
+- ✅ **数据库视图安全** - 行级和列级权限控制
+- ✅ **8个数据库用户** - 每个角色对应独立账号
+
+**详细文档：** 
+- [角色切换更新说明](ROLE_SWITCH_UPDATE.md) - 最新功能说明
+- [系统功能完整文档](SYSTEM_FEATURES.md) - 详细功能介绍
+- [数据库设计文档](database/README.md) - 数据库结构说明
 
 ## 📋 目录
 
@@ -182,10 +192,12 @@ mysql --commands -u root -p < schema.sql
 # 输入 MySQL root 密码
 
 mysql --commands -u root -p < triggers.sql
-mysql --commands -u root -p < seed.sql
-mysql -u root -p --default-character-set=utf8mb4 hospital_test < seed.sql
+mysql -u root -p --default-character-set=utf8mb4 hospital_test < seed_simple.sql
 mysql --commands -u root -p < security.sql
 mysql --commands -u root -p < routines.sql
+
+# 可选：授予存储过程执行权限
+mysql --commands -u root -p < sql/security/5_grants_routines.sql
 ```
 
 #### 步骤 3: 配置后端
@@ -330,10 +342,9 @@ mysql_secure_installation
 # 进入数据库目录
 cd /path/to/dbsfn/database
 
-# 执行 SQL 脚本
+# 执行 SQL 脚本（按顺序执行）
 mysql --commands -u root -p < schema.sql
 mysql --commands -u root -p < triggers.sql
-#mysql --commands -u root -p < seed.sql
 mysql -u root -p --default-character-set=utf8mb4 hospital_test < seed_simple.sql
 mysql --commands -u root -p < security.sql
 mysql --commands -u root -p < routines.sql

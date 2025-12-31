@@ -3,3 +3,4 @@
 *.bat
 *.sh
 !README.md
+!AGENTS.md

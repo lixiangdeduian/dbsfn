@@ -4,7 +4,7 @@
 """
 from flask import Blueprint, request, jsonify
 from models import db
-from auth import require_role
+from auth import require_role, get_current_role
 from sqlalchemy import text
 
 procedures_bp = Blueprint('procedures', __name__)
@@ -144,114 +144,6 @@ def create_payment_procedure():
             elif 'amount exceeds' in error_msg:
                 return jsonify({'error': '支付金额超过剩余应付金额'}), 400
         return jsonify({'error': f'支付失败：{error_msg}'}), 500
-
-
-@procedures_bp.route('/patient/create', methods=['POST'])
-@require_role('admin', 'reception')
-def create_patient_procedure():
-    """
-    调用存储过程：创建患者
-    
-    存储过程：sp_patient_create
-    """
-    try:
-        data = request.get_json()
-        
-        sql = text("""
-            CALL sp_patient_create(
-                :p_patient_name,
-                :p_gender,
-                :p_birth_date,
-                :p_id_card_no,
-                :p_phone,
-                :p_address,
-                :p_blood_type,
-                :p_allergy_history,
-                @o_patient_id,
-                @o_patient_no
-            )
-        """)
-        
-        db.session.execute(sql, {
-            'p_patient_name': data.get('patient_name'),
-            'p_gender': data.get('gender', 'U'),
-            'p_birth_date': data.get('birth_date'),
-            'p_id_card_no': data.get('id_card_no'),
-            'p_phone': data.get('phone'),
-            'p_address': data.get('address'),
-            'p_blood_type': data.get('blood_type', 'U'),
-            'p_allergy_history': data.get('allergy_history')
-        })
-        
-        result = db.session.execute(text("""
-            SELECT @o_patient_id as patient_id,
-                   @o_patient_no as patient_no
-        """)).fetchone()
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'patient_id': result.patient_id,
-            'patient_no': result.patient_no,
-            'message': '患者创建成功'
-        })
-    
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'创建患者失败：{str(e)}'}), 500
-
-
-@procedures_bp.route('/registration/create', methods=['POST'])
-@require_role('admin', 'reception', 'patient')
-def create_registration_procedure():
-    """
-    调用存储过程：门诊挂号
-    
-    存储过程：sp_outpatient_register
-    """
-    try:
-        data = request.get_json()
-        
-        sql = text("""
-            CALL sp_outpatient_register(
-                :p_patient_id,
-                :p_schedule_id,
-                :p_chief_complaint,
-                @o_registration_id,
-                @o_registration_no
-            )
-        """)
-        
-        db.session.execute(sql, {
-            'p_patient_id': data.get('patient_id'),
-            'p_schedule_id': data.get('schedule_id'),
-            'p_chief_complaint': data.get('chief_complaint', '')
-        })
-        
-        result = db.session.execute(text("""
-            SELECT @o_registration_id as registration_id,
-                   @o_registration_no as registration_no
-        """)).fetchone()
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'registration_id': result.registration_id,
-            'registration_no': result.registration_no,
-            'message': '挂号成功'
-        })
-    
-    except Exception as e:
-        db.session.rollback()
-        error_msg = str(e)
-        if '45000' in error_msg:
-            if 'quota full' in error_msg:
-                return jsonify({'error': '该时间段号源已满'}), 400
-            elif 'not found' in error_msg:
-                return jsonify({'error': '患者或排班不存在'}), 404
-        return jsonify({'error': f'挂号失败：{error_msg}'}), 500
 
 
 @procedures_bp.route('/dispense/create', methods=['POST'])
@@ -444,6 +336,133 @@ def inpatient_admit():
         return jsonify({'error': f'入院办理失败：{error_msg}'}), 500
 
 
+@procedures_bp.route('/patient/create', methods=['POST'])
+@require_role('admin', 'reception')
+def patient_create():
+    """
+    调用存储过程：创建患者档案
+    
+    存储过程：sp_patient_create
+    功能：生成唯一patient_no，创建患者档案
+    """
+    try:
+        data = request.get_json()
+        
+        sql = text("""
+            CALL sp_patient_create(
+                :p_patient_name,
+                :p_gender,
+                :p_birth_date,
+                :p_id_card_no,
+                :p_phone,
+                :p_address,
+                :p_emergency_contact_name,
+                :p_emergency_contact_phone,
+                :p_blood_type,
+                :p_allergy_history,
+                @o_patient_id,
+                @o_patient_no
+            )
+        """)
+        
+        db.session.execute(sql, {
+            'p_patient_name': data.get('patient_name'),
+            'p_gender': data.get('gender', 'U'),
+            'p_birth_date': data.get('birth_date'),
+            'p_id_card_no': data.get('id_card_no'),
+            'p_phone': data.get('phone'),
+            'p_address': data.get('address'),
+            'p_emergency_contact_name': data.get('emergency_contact_name'),
+            'p_emergency_contact_phone': data.get('emergency_contact_phone'),
+            'p_blood_type': data.get('blood_type', 'U'),
+            'p_allergy_history': data.get('allergy_history')
+        })
+        
+        result = db.session.execute(text("""
+            SELECT @o_patient_id as patient_id,
+                   @o_patient_no as patient_no
+        """)).fetchone()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'patient_id': result.patient_id,
+            'patient_no': result.patient_no,
+            'message': '患者创建成功'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        error_msg = str(e)
+        if '45000' in error_msg:
+            if 'required' in error_msg:
+                return jsonify({'error': '必填字段缺失'}), 400
+        return jsonify({'error': f'创建失败：{error_msg}'}), 500
+
+
+@procedures_bp.route('/outpatient/register', methods=['POST'])
+@require_role('admin', 'reception')
+def outpatient_register():
+    """
+    调用存储过程：门诊挂号
+    
+    存储过程：sp_outpatient_register
+    功能：完成挂号并自动创建就诊记录、生成挂号费
+    """
+    try:
+        data = request.get_json()
+        
+        sql = text("""
+            CALL sp_outpatient_register(
+                :p_patient_id,
+                :p_schedule_id,
+                :p_chief_complaint,
+                @o_registration_id,
+                @o_registration_no,
+                @o_encounter_id,
+                @o_encounter_no,
+                @o_charge_id
+            )
+        """)
+        
+        db.session.execute(sql, {
+            'p_patient_id': data.get('patient_id'),
+            'p_schedule_id': data.get('schedule_id'),
+            'p_chief_complaint': data.get('chief_complaint', '')
+        })
+        
+        result = db.session.execute(text("""
+            SELECT @o_registration_id as registration_id,
+                   @o_registration_no as registration_no,
+                   @o_encounter_id as encounter_id,
+                   @o_encounter_no as encounter_no,
+                   @o_charge_id as charge_id
+        """)).fetchone()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'registration_id': result.registration_id,
+            'registration_no': result.registration_no,
+            'encounter_id': result.encounter_id,
+            'encounter_no': result.encounter_no,
+            'charge_id': result.charge_id,
+            'message': '挂号成功'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        error_msg = str(e)
+        if '45000' in error_msg:
+            if 'not found' in error_msg:
+                return jsonify({'error': '患者或排班不存在'}), 404
+            elif 'quota exceeded' in error_msg:
+                return jsonify({'error': '该排班号源已满'}), 400
+        return jsonify({'error': f'挂号失败：{error_msg}'}), 500
+
+
 @procedures_bp.route('/list', methods=['GET'])
 @require_role('admin')
 def list_procedures():
@@ -473,9 +492,9 @@ def list_procedures():
         
         return jsonify({
             'procedures': procedures,
-            'count': len(procedures)
+            'count': len(procedures),
+            'current_role': get_current_role()
         })
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
