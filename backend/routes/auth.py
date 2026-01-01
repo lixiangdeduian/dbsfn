@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify
 
 auth_bp = Blueprint('auth', __name__)
 
-# 角色配置
+# 角色配置（与数据库 role_* 对应）
 ROLES = {
     'admin': {
         'name': '超级管理员',
@@ -41,6 +41,11 @@ ROLES = {
         'name': '前台接待',
         'db_user': 'reception_user',
         'color': '#13c2c2'
+    },
+    'patient': {
+        'name': '患者',
+        'db_user': 'patient_user',
+        'color': '#52c41a'
     }
 }
 

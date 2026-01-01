@@ -9,6 +9,7 @@ from routes.procedures import procedures_bp
 from routes.pharmacy import pharmacy_bp
 from routes.lab import lab_bp
 from routes.inpatient import inpatient_bp
+from routes.patient_portal import patient_portal_bp
 
 def create_app():
     """创建并配置Flask应用"""
@@ -25,6 +26,7 @@ def create_app():
     app.register_blueprint(pharmacy_bp, url_prefix='/api/pharmacy')  # 药房管理
     app.register_blueprint(lab_bp, url_prefix='/api/lab')  # 检验管理
     app.register_blueprint(inpatient_bp, url_prefix='/api/inpatients')  # 住院管理
+    app.register_blueprint(patient_portal_bp, url_prefix='/api/patient-portal')  # 患者门户
     app.register_blueprint(routes.patient_bp, url_prefix='/api/patients')
     app.register_blueprint(routes.schedule_bp, url_prefix='/api/schedules')
     app.register_blueprint(routes.registration_bp, url_prefix='/api/registrations')

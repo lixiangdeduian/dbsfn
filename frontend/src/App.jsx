@@ -35,6 +35,7 @@ import Statistics from './pages/Statistics'
 import PharmacyList from './pages/PharmacyList'
 import LabList from './pages/LabList'
 import InpatientList from './pages/InpatientList'
+import PatientPortal from './pages/PatientPortal'
 
 const { Header, Sider, Content } = Layout
 const { Option } = Select
@@ -78,13 +79,19 @@ function App() {
       key: '/',
       icon: <DashboardOutlined />,
       label: <Link to="/">仪表盘</Link>,
-      roles: ['admin', 'doctor', 'nurse', 'pharmacist', 'lab_tech', 'cashier', 'reception']
+      roles: ['admin', 'doctor', 'nurse', 'pharmacist', 'lab_tech', 'cashier', 'reception', 'patient']
+    },
+    {
+      key: '/patient-portal',
+      icon: <UserOutlined />,
+      label: <Link to="/patient-portal">我的门户</Link>,
+      roles: ['patient']
     },
     {
       key: '/patients',
       icon: <UserOutlined />,
       label: <Link to="/patients">患者管理</Link>,
-      roles: ['admin', 'doctor', 'nurse', 'reception']
+      roles: ['admin', 'doctor', 'nurse', 'reception', 'lab_tech']
     },
     {
       key: '/schedules',
@@ -96,13 +103,13 @@ function App() {
       key: '/registrations',
       icon: <FileTextOutlined />,
       label: <Link to="/registrations">挂号管理</Link>,
-      roles: ['admin', 'doctor', 'reception']
+      roles: ['admin', 'reception']  // 只有 reception 可以创建挂号
     },
     {
       key: '/encounters',
       icon: <FileTextOutlined />,
       label: <Link to="/encounters">就诊管理</Link>,
-      roles: ['admin', 'doctor']
+      roles: ['admin', 'doctor', 'nurse']  // 护士可以查看就诊
     },
     {
       key: '/invoices',
@@ -323,6 +330,7 @@ function App() {
               <Route path="/pharmacy" element={<PharmacyList />} />
               <Route path="/lab" element={<LabList />} />
               <Route path="/inpatients" element={<InpatientList />} />
+              <Route path="/patient-portal" element={<PatientPortal />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Content>

@@ -463,6 +463,347 @@ def outpatient_register():
         return jsonify({'error': f'挂号失败：{error_msg}'}), 500
 
 
+@procedures_bp.route('/invoice/attach-charges', methods=['POST'])
+@require_role('admin', 'cashier')
+def attach_unbilled_charges():
+    """
+    调用存储过程：附加未开票费用到发票（使用游标）
+    
+    存储过程：sp_invoice_attach_unbilled_charges
+    功能：使用游标遍历新产生的未开票费用，追加到已有发票
+    """
+    try:
+        data = request.get_json()
+        invoice_id = data.get('invoice_id')
+        
+        if not invoice_id:
+            return jsonify({'error': '发票ID不能为空'}), 400
+        
+        # 调用存储过程
+        sql = text("""
+            CALL sp_invoice_attach_unbilled_charges(
+                :p_invoice_id,
+                @o_new_line_count
+            )
+        """)
+        
+        db.session.execute(sql, {'p_invoice_id': invoice_id})
+        
+        # 获取输出参数
+        result = db.session.execute(text("SELECT @o_new_line_count")).fetchone()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'new_line_count': result[0],
+            'message': f'成功追加{result[0]}条费用明细到发票'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'追加费用失败：{str(e)}'}), 500
+
+
+@procedures_bp.route('/invoice/void', methods=['POST'])
+@require_role('admin', 'cashier')
+def void_invoice():
+    """
+    调用存储过程：作废发票（使用游标）
+    
+    存储过程：sp_invoice_void
+    功能：使用游标遍历发票行，将费用状态恢复为未开票
+    """
+    try:
+        data = request.get_json()
+        invoice_id = data.get('invoice_id')
+        reason = data.get('reason', '手动作废')
+        
+        if not invoice_id:
+            return jsonify({'error': '发票ID不能为空'}), 400
+        
+        # 调用存储过程
+        sql = text("""
+            CALL sp_invoice_void(
+                :p_invoice_id,
+                :p_reason
+            )
+        """)
+        
+        db.session.execute(sql, {
+            'p_invoice_id': invoice_id,
+            'p_reason': reason
+        })
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '发票已作废，相关费用已恢复为未开票状态'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'作废发票失败：{str(e)}'}), 500
+
+
+@procedures_bp.route('/refund/create', methods=['POST'])
+@require_role('admin', 'cashier')
+def create_refund():
+    """
+    调用存储过程：创建退款
+    
+    存储过程：sp_refund_create
+    功能：创建退款记录并更新发票状态
+    """
+    try:
+        data = request.get_json()
+        payment_id = data.get('payment_id')
+        amount = data.get('amount')
+        reason = data.get('reason', '')
+        
+        if not payment_id or not amount:
+            return jsonify({'error': '支付ID和退款金额不能为空'}), 400
+        
+        # 调用存储过程
+        sql = text("""
+            CALL sp_refund_create(
+                :p_payment_id,
+                :p_amount,
+                :p_reason,
+                @o_refund_id,
+                @o_refund_no
+            )
+        """)
+        
+        db.session.execute(sql, {
+            'p_payment_id': payment_id,
+            'p_amount': amount,
+            'p_reason': reason
+        })
+        
+        # 获取输出参数
+        result = db.session.execute(text("""
+            SELECT @o_refund_id, @o_refund_no
+        """)).fetchone()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'refund_id': result[0],
+            'refund_no': result[1],
+            'message': '退款成功'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'退款失败：{str(e)}'}), 500
+
+
+@procedures_bp.route('/bed/transfer', methods=['POST'])
+@require_role('admin', 'nurse')
+def transfer_bed():
+    """
+    调用存储过程：床位转移
+    
+    存储过程：sp_bed_assignment_transfer
+    功能：将患者从当前床位转移到新床位
+    """
+    try:
+        data = request.get_json()
+        admission_id = data.get('admission_id')
+        new_bed_id = data.get('new_bed_id')
+        reason = data.get('reason', '')
+        
+        if not admission_id or not new_bed_id:
+            return jsonify({'error': '住院ID和新床位ID不能为空'}), 400
+        
+        # 调用存储过程
+        sql = text("""
+            CALL sp_bed_assignment_transfer(
+                :p_admission_id,
+                :p_new_bed_id,
+                :p_reason
+            )
+        """)
+        
+        db.session.execute(sql, {
+            'p_admission_id': admission_id,
+            'p_new_bed_id': new_bed_id,
+            'p_reason': reason
+        })
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '床位转移成功'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'床位转移失败：{str(e)}'}), 500
+
+
+@procedures_bp.route('/inpatient/discharge', methods=['POST'])
+@require_role('admin', 'doctor', 'nurse')
+def discharge_inpatient():
+    """
+    调用存储过程：办理出院
+    
+    存储过程：sp_inpatient_discharge
+    功能：办理患者出院，释放床位
+    """
+    try:
+        data = request.get_json()
+        admission_id = data.get('admission_id')
+        discharge_summary = data.get('discharge_summary', '')
+        
+        if not admission_id:
+            return jsonify({'error': '住院ID不能为空'}), 400
+        
+        # 调用存储过程
+        sql = text("""
+            CALL sp_inpatient_discharge(
+                :p_admission_id,
+                :p_discharge_summary
+            )
+        """)
+        
+        db.session.execute(sql, {
+            'p_admission_id': admission_id,
+            'p_discharge_summary': discharge_summary
+        })
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '出院办理成功，床位已释放'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'办理出院失败：{str(e)}'}), 500
+
+
+@procedures_bp.route('/lab/mark-collected', methods=['POST'])
+@require_role('admin', 'lab_tech', 'nurse')
+def mark_lab_collected():
+    """
+    调用存储过程：标记检验单已采样
+    
+    存储过程：sp_lab_order_mark_collected
+    功能：标记检验单为已采样状态
+    """
+    try:
+        data = request.get_json()
+        lab_order_id = data.get('lab_order_id')
+        
+        if not lab_order_id:
+            return jsonify({'error': '检验单ID不能为空'}), 400
+        
+        # 调用存储过程
+        sql = text("""
+            CALL sp_lab_order_mark_collected(:p_lab_order_id)
+        """)
+        
+        db.session.execute(sql, {'p_lab_order_id': lab_order_id})
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '检验单已标记为已采样'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'标记采样失败：{str(e)}'}), 500
+
+
+@procedures_bp.route('/lab/prepare-results', methods=['POST'])
+@require_role('admin', 'lab_tech')
+def prepare_lab_results():
+    """
+    调用存储过程：准备检验结果占位（使用游标）
+    
+    存储过程：sp_lab_order_prepare_results
+    功能：使用游标遍历检验单的所有项目，为每个项目创建结果记录占位
+    """
+    try:
+        data = request.get_json()
+        lab_order_id = data.get('lab_order_id')
+        technician_id = data.get('technician_id')
+        
+        if not lab_order_id or not technician_id:
+            return jsonify({'error': '检验单ID和技师ID不能为空'}), 400
+        
+        # 调用存储过程
+        sql = text("""
+            CALL sp_lab_order_prepare_results(
+                :p_lab_order_id,
+                :p_technician_id,
+                @o_result_count
+            )
+        """)
+        
+        db.session.execute(sql, {
+            'p_lab_order_id': lab_order_id,
+            'p_technician_id': technician_id
+        })
+        
+        # 获取输出参数
+        result = db.session.execute(text("SELECT @o_result_count")).fetchone()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'result_count': result[0],
+            'message': f'成功为{result[0]}个检验项目创建结果占位'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'准备检验结果失败：{str(e)}'}), 500
+
+
+@procedures_bp.route('/lab/verify-result', methods=['POST'])
+@require_role('admin', 'lab_tech')
+def verify_lab_result():
+    """
+    调用存储过程：审核检验结果
+    
+    存储过程：sp_lab_result_verify
+    功能：审核检验结果，标记为已审核
+    """
+    try:
+        data = request.get_json()
+        lab_result_id = data.get('lab_result_id')
+        verified_by = data.get('verified_by')
+        
+        if not lab_result_id or not verified_by:
+            return jsonify({'error': '结果ID和审核人ID不能为空'}), 400
+        
+        # 调用存储过程
+        sql = text("""
+            CALL sp_lab_result_verify(
+                :p_lab_result_id,
+                :p_verified_by
+            )
+        """)
+        
+        db.session.execute(sql, {
+            'p_lab_result_id': lab_result_id,
+            'p_verified_by': verified_by
+        })
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '检验结果已审核'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'审核检验结果失败：{str(e)}'}), 500
+
+
 @procedures_bp.route('/list', methods=['GET'])
 @require_role('admin')
 def list_procedures():
