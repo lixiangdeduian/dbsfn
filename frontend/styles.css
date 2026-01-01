@@ -537,6 +537,15 @@ tr:hover td {
   padding: 24px 0;
 }
 
+#notification {
+  position: fixed;
+  top: 76px;
+  right: 24px;
+  z-index: 300;
+  min-width: 220px;
+  pointer-events: none;
+}
+
 .alert {
   padding: 12px 14px;
   border-radius: 12px;
@@ -544,6 +553,40 @@ tr:hover td {
   color: #ffbf69;
   background: rgba(255, 159, 28, 0.08);
   margin-bottom: 10px;
+}
+
+.toast {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(29, 211, 176, 0.4);
+  color: var(--text);
+  background: rgba(29, 211, 176, 0.14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  animation: fadeInOut 1.2s ease;
+}
+
+.toast.success {
+  border-color: rgba(29, 211, 176, 0.6);
+  background: rgba(29, 211, 176, 0.2);
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 
 @media (max-width: 960px) {

@@ -57,9 +57,16 @@ function isWritablePrivilege(privileges) {
   return ['INSERT', 'UPDATE', 'DELETE'].some((p) => privileges.includes(p));
 }
 
+function hasInsertPrivilege(privileges) {
+  if (!privileges || !privileges.length) return false;
+  if (privileges.includes('ALL PRIVILEGES') || privileges.includes('ALL')) return true;
+  return privileges.includes('INSERT');
+}
+
 module.exports = {
   listRoles,
   roleHasAll,
   getPrivilegesForRole,
-  isWritablePrivilege
+  isWritablePrivilege,
+  hasInsertPrivilege
 };

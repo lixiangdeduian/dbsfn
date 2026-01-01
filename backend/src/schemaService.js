@@ -1,7 +1,13 @@
 const { QueryTypes } = require('sequelize');
 const sequelize = require('./db');
 const config = require('./config');
-const { listRoles, roleHasAll, getPrivilegesForRole, isWritablePrivilege } = require('./privileges');
+const {
+  listRoles,
+  roleHasAll,
+  getPrivilegesForRole,
+  isWritablePrivilege,
+  hasInsertPrivilege
+} = require('./privileges');
 const { resolveDisplayName } = require('./nameMap');
 
 let cachedObjects = null;
@@ -83,11 +89,20 @@ async function accessModeFor(roleName, objectName) {
   return isWritablePrivilege(privs) ? 'RW' : 'R';
 }
 
+async function canInsert(roleName, objectName) {
+  const role = normalizeRole(roleName);
+  if (role === 'super_admin' || roleHasAll(role)) return true;
+  const privileges = getPrivilegesForRole(role);
+  const privs = privileges[objectName] || [];
+  return hasInsertPrivilege(privs);
+}
+
 module.exports = {
   listRoles,
   buildMenu,
   isObjectAllowed,
   accessModeFor,
   getObjectType,
-  loadSchemaObjects
+  loadSchemaObjects,
+  canInsert
 };
