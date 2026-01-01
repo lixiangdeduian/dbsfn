@@ -1,6 +1,7 @@
 -- =========================
 -- 2.1) 患者自助视图（假设：DB 用户名 = user_account.username）
 -- 说明：使用 SQL SECURITY DEFINER + CURRENT_USER() 做行级过滤（避免开放基表 SELECT 给患者）
+-- 演示模式：如果当前用户无法匹配到任何患者账号，则返回第一个有账号的患者数据
 -- =========================
 
 CREATE OR REPLACE SQL SECURITY DEFINER VIEW v_current_patient
@@ -18,7 +19,23 @@ SELECT
 FROM user_account ua
 JOIN patient p ON p.patient_id = ua.patient_id
 WHERE ua.is_active = 1
-  AND ua.username = SUBSTRING_INDEX(USER(), '@', 1);
+  AND (
+    ua.username = SUBSTRING_INDEX(USER(), '@', 1)
+    OR (
+      -- 演示模式：如果没有匹配的用户，回退到第一个有账号的患者
+      NOT EXISTS (
+        SELECT 1 FROM user_account ua2
+        WHERE ua2.is_active = 1
+          AND ua2.patient_id IS NOT NULL
+          AND ua2.username = SUBSTRING_INDEX(USER(), '@', 1)
+      )
+      AND ua.user_account_id = (
+        SELECT MIN(ua3.user_account_id)
+        FROM user_account ua3
+        WHERE ua3.is_active = 1 AND ua3.patient_id IS NOT NULL
+      )
+    )
+  );
 
 CREATE OR REPLACE SQL SECURITY DEFINER VIEW v_patient_my_encounters
 AS

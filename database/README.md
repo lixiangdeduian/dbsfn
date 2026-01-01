@@ -31,6 +31,16 @@ mysql --commands -u root -p < routines.sql
 # 若需要授予各角色执行存储过程（EXECUTE）权限，请在 routines.sql 之后执行：
 mysql --commands -u root -p < sql/security/5_grants_routines.sql
 ```
+DROP DATABASE IF EXISTS hospital_test;
+CREATE DATABASE hospital_test
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_0900_ai_ci;
+
+mysql --default-character-set=utf8mb4 --commands -u root -p hospital_test < schema.sql
+mysql --default-character-set=utf8mb4 --commands -u root -p hospital_test < triggers.sql
+mysql --default-character-set=utf8mb4 --commands -u root -p hospital_test < routines.sql
+mysql --default-character-set=utf8mb4 --commands -u root -p hospital_test < security.sql
+mysql --default-character-set=utf8mb4 --commands -u root -p hospital_test < seed.sql
 
 ## 快速核对（在 mysql 客户端内）
 

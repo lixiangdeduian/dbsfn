@@ -27,45 +27,9 @@
         <div>
           <div class="eyebrow">存储过程 & 游标</div>
           <h2>例程执行工作台</h2>
-          <p class="muted">在统一界面内查看例程说明、预填合法参数并执行，快速验证数据库游标/过程。</p>
         </div>
         <div class="panel-actions">
           <button id="refreshRoutines" class="button ghost">刷新列表</button>
-        </div>
-      </div>
-
-      <div class="panel info-panel">
-        <div class="panel-header">
-          <div>
-            <div class="eyebrow">新增统计例程</div>
-            <h3>运营/收费报表快跑</h3>
-            <div class="info-note muted">游标驱动的科室与财务汇总，默认填入最近 7 天区间，带 OUT 总计。</div>
-          </div>
-          <div class="panel-actions">
-            <span class="pill subtle">统计</span>
-          </div>
-        </div>
-        <div class="info-grid">
-          <div class="info-item">
-            <div class="info-title">sp_stats_department_overview</div>
-            <div class="muted">逐科室聚合挂号、就诊、未结发票与费用金额，帮你判断科室经营表现。</div>
-          </div>
-          <div class="info-item">
-            <div class="info-title">sp_stats_billing_trend</div>
-            <div class="muted">按日统计开票数量、支付/退款与净收款曲线，快速看收入走势。</div>
-          </div>
-          <div class="info-item">
-            <div class="info-title">sp_stats_doctor_workload</div>
-            <div class="muted">逐医生汇总就诊、处方、检验开单次数，便捷评估医生工作量。</div>
-          </div>
-          <div class="info-item">
-            <div class="info-title">sp_stats_patient_outstanding</div>
-            <div class="muted">按患者汇总未结清发票数量与欠款，支持应收监控。</div>
-          </div>
-          <div class="info-item">
-            <div class="info-title">区间参数</div>
-            <div class="muted">支持日期输入，留空即默认最近 7 天，前端会预填示例区间。</div>
-          </div>
         </div>
       </div>
 
@@ -86,7 +50,9 @@
           </div>
         </div>
         <div id="paramForm" class="routine-form"></div>
-        <div id="routineResult" class="routine-result empty">尚未执行任何例程。</div>
+        <div id="routineResult" class="routine-result empty">
+          尚未执行任何例程。
+        </div>
       </div>
     </main>
 

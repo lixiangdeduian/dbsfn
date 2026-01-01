@@ -351,6 +351,8 @@ function buildInsertExampleLocal() {
   const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   const uniqueSuffix = Date.now().toString(36);
+  // 使用时间戳生成更大的随机偏移，避免主键冲突
+  const randomOffset = Math.floor(Math.random() * 10000) + Date.now() % 100000;
   const example = {};
 
   state.columns.forEach((col) => {
@@ -371,7 +373,7 @@ function buildInsertExampleLocal() {
       val = '';
     } else if (col.columnKey === 'PRI') {
       if (type.includes('int') || type.includes('decimal') || type.includes('numeric')) {
-        val = Number(Date.now() % 100000);
+        val = Number(Date.now() % 100000) + Math.floor(Math.random() * 10000);
       } else {
         val = `${col.name}_${uniqueSuffix}`;
       }
@@ -384,7 +386,8 @@ function buildInsertExampleLocal() {
     } else if (comment.includes('日期') || comment.includes('时间')) {
       val = `${dateStr} ${timeStr}`;
     } else if (type.includes('int') || type.includes('decimal') || type.includes('numeric') || type.includes('float')) {
-      val = val !== undefined && val !== null ? val : 1;
+      // 对于数字类型，优先使用 sample 值；如果没有则使用随机值（避免外键冲突）
+      val = val !== undefined && val !== null ? val : (sample !== undefined && sample !== null ? sample : randomOffset);
     } else if (type.includes('char') || type.includes('text') || type.includes('enum')) {
       const base = val !== undefined && val !== null ? String(val) : `${col.name}_${uniqueSuffix}`;
       val = base.slice(0, maxLength);

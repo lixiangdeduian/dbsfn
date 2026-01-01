@@ -6,3 +6,4 @@ USE hospital_test;
 \. sql/security/2_views_patient.sql
 \. sql/security/3_views_staff.sql
 \. sql/security/4_grants.sql
+\. sql/security/5_grants_routines.sql
