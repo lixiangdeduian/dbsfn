@@ -10,6 +10,18 @@ function randomId(prefix) {
   return `${prefix}_${Date.now().toString(36)}_${Math.floor(Math.random() * 1000)}`;
 }
 
+function dateRangeExample(daysBack = 6) {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - daysBack);
+  const format = (d) => d.toISOString().slice(0, 10);
+  return { start: format(start), end: format(end) };
+}
+
+function normalizeOutputs(outputs) {
+  return (outputs || []).map((o) => (typeof o === 'string' ? { name: o, label: o } : o));
+}
+
 async function pickActivePatient(transaction) {
   const rows = await sequelize.query(
     `SELECT patient_id AS id
@@ -138,7 +150,10 @@ const routineDefinitions = [
       { name: 'p_blood_type', label: '血型', required: false, placeholder: 'A/B/AB/O/U' },
       { name: 'p_allergy_history', label: '过敏史', required: false, placeholder: '过敏史备注' }
     ],
-    outputs: ['o_patient_id', 'o_patient_no'],
+    outputs: [
+      { name: 'o_patient_id', label: '患者ID' },
+      { name: 'o_patient_no', label: '患者编号' }
+    ],
     exampleBuilder: async () => {
       const now = new Date();
       const year = now.getFullYear() - 25;
@@ -191,7 +206,13 @@ const routineDefinitions = [
       { name: 'p_schedule_id', label: '排班ID', required: true, type: 'number' },
       { name: 'p_chief_complaint', label: '主诉', required: false, placeholder: '发热三天' }
     ],
-    outputs: ['o_registration_id', 'o_registration_no', 'o_encounter_id', 'o_encounter_no', 'o_charge_id'],
+    outputs: [
+      { name: 'o_registration_id', label: '挂号ID' },
+      { name: 'o_registration_no', label: '挂号单号' },
+      { name: 'o_encounter_id', label: '就诊ID' },
+      { name: 'o_encounter_no', label: '就诊号' },
+      { name: 'o_charge_id', label: '费用ID' }
+    ],
     exampleBuilder: async (transaction) => {
       const schedules = await pickScheduleWithQuota(transaction);
       for (const scheduleId of schedules) {
@@ -216,7 +237,11 @@ const routineDefinitions = [
       { name: 'p_encounter_id', label: '就诊ID', required: true, type: 'number' },
       { name: 'p_note', label: '备注', required: false, placeholder: '集中开票示例' }
     ],
-    outputs: ['o_invoice_id', 'o_invoice_no', 'o_line_count'],
+    outputs: [
+      { name: 'o_invoice_id', label: '发票ID' },
+      { name: 'o_invoice_no', label: '发票号' },
+      { name: 'o_line_count', label: '明细行数' }
+    ],
     exampleBuilder: async (transaction) => {
       const encounterId = await pickEncounterWithUnbilledCharges(transaction);
       if (!encounterId) throw new Error('未找到存在未开票费用的就诊，请先产生费用');
@@ -235,7 +260,7 @@ const routineDefinitions = [
       { name: 'p_invoice_id', label: '发票ID', required: true, type: 'number' },
       { name: 'p_reason', label: '作废原因', required: false, placeholder: '示例原因：信息错误' }
     ],
-    outputs: ['o_detached_count'],
+    outputs: [{ name: 'o_detached_count', label: '释放费用条数' }],
     exampleBuilder: async (transaction) => {
       const invoiceId = await pickInvoiceForVoid(transaction);
       if (!invoiceId) throw new Error('未找到可作废的发票（需未支付），请先创建发票');
@@ -256,7 +281,10 @@ const routineDefinitions = [
       { name: 'p_amount', label: '金额', required: true, type: 'number' },
       { name: 'p_transaction_ref', label: '交易参考号', required: false, placeholder: 'pay_xxx' }
     ],
-    outputs: ['o_payment_id', 'o_payment_no'],
+    outputs: [
+      { name: 'o_payment_id', label: '支付ID' },
+      { name: 'o_payment_no', label: '支付单号' }
+    ],
     exampleBuilder: async (transaction) => {
       const invoice = await pickInvoiceForPayment(transaction);
       if (!invoice) throw new Error('未找到待支付的发票，请先创建发票');
@@ -282,7 +310,10 @@ const routineDefinitions = [
       { name: 'p_amount', label: '退款金额', required: true, type: 'number' },
       { name: 'p_reason', label: '退款原因', required: false, placeholder: '示例原因：重复收费' }
     ],
-    outputs: ['o_refund_id', 'o_refund_no'],
+    outputs: [
+      { name: 'o_refund_id', label: '退款ID' },
+      { name: 'o_refund_no', label: '退款单号' }
+    ],
     exampleBuilder: async (transaction) => {
       const payment = await pickRefundablePayment(transaction);
       if (!payment) throw new Error('未找到可退款的支付记录，请先创建支付');
@@ -292,6 +323,93 @@ const routineDefinitions = [
         p_payment_id: payment.id,
         p_amount: suggested,
         p_reason: '示例原因：重复收费'
+      };
+    }
+  },
+  {
+    name: 'sp_stats_department_overview',
+    displayName: '科室经营总览（游标）',
+    category: '统计',
+    description: '按科室聚合挂号/就诊/开票/费用，游标遍历科室写入临时表。',
+    params: [
+      { name: 'p_start_date', label: '开始日期', required: false, placeholder: 'YYYY-MM-DD', type: 'date' },
+      { name: 'p_end_date', label: '结束日期', required: false, placeholder: 'YYYY-MM-DD', type: 'date' }
+    ],
+    outputs: [
+      { name: 'o_department_count', label: '科室数' },
+      { name: 'o_total_encounters', label: '总就诊数' },
+      { name: 'o_total_charge_amount', label: '费用总额' }
+    ],
+    exampleBuilder: async () => {
+      const range = dateRangeExample(6);
+      return {
+        p_start_date: range.start,
+        p_end_date: range.end
+      };
+    }
+  },
+  {
+    name: 'sp_stats_billing_trend',
+    displayName: '收费日报（游标）',
+    category: '统计',
+    description: '按日输出开票数、支付/退款与净额，游标遍历日期集合。',
+    params: [
+      { name: 'p_start_date', label: '开始日期', required: false, placeholder: 'YYYY-MM-DD', type: 'date' },
+      { name: 'p_end_date', label: '结束日期', required: false, placeholder: 'YYYY-MM-DD', type: 'date' }
+    ],
+    outputs: [
+      { name: 'o_day_count', label: '天数' },
+      { name: 'o_total_net_payment', label: '净收款汇总' }
+    ],
+    exampleBuilder: async () => {
+      const range = dateRangeExample(6);
+      return {
+        p_start_date: range.start,
+        p_end_date: range.end
+      };
+    }
+  },
+  {
+    name: 'sp_stats_doctor_workload',
+    displayName: '医生工作量（游标）',
+    category: '统计',
+    description: '按医生汇总就诊、处方、检验开单次数，游标遍历医生列表。',
+    params: [
+      { name: 'p_start_date', label: '开始日期', required: false, placeholder: 'YYYY-MM-DD', type: 'date' },
+      { name: 'p_end_date', label: '结束日期', required: false, placeholder: 'YYYY-MM-DD', type: 'date' }
+    ],
+    outputs: [
+      { name: 'o_doctor_count', label: '医生数' },
+      { name: 'o_total_encounters', label: '总就诊数' },
+      { name: 'o_total_prescriptions', label: '总处方数' },
+      { name: 'o_total_lab_orders', label: '总检验单数' }
+    ],
+    exampleBuilder: async () => {
+      const range = dateRangeExample(6);
+      return {
+        p_start_date: range.start,
+        p_end_date: range.end
+      };
+    }
+  },
+  {
+    name: 'sp_stats_patient_outstanding',
+    displayName: '患者应收（游标）',
+    category: '统计',
+    description: '按患者遍历未结清发票，汇总欠款金额与发票数量。',
+    params: [
+      { name: 'p_start_date', label: '开始日期', required: false, placeholder: 'YYYY-MM-DD', type: 'date' },
+      { name: 'p_end_date', label: '结束日期', required: false, placeholder: 'YYYY-MM-DD', type: 'date' }
+    ],
+    outputs: [
+      { name: 'o_patient_count', label: '患者数' },
+      { name: 'o_total_outstanding', label: '欠款总额' }
+    ],
+    exampleBuilder: async () => {
+      const range = dateRangeExample(6);
+      return {
+        p_start_date: range.start,
+        p_end_date: range.end
       };
     }
   }
@@ -346,7 +464,7 @@ async function listRoutines() {
     category: r.category,
     description: r.description,
     params: r.params,
-    outputs: r.outputs
+    outputs: normalizeOutputs(r.outputs)
   }));
 }
 
@@ -371,7 +489,7 @@ async function executeRoutine(name, roleName, payload) {
     throw new Error('未知的例程名称');
   }
   const params = validateParams(routine, payload);
-  const outParams = routine.outputs || [];
+  const outParams = normalizeOutputs(routine.outputs).map((o) => o.name);
 
   return sequelize.transaction(async (transaction) => {
     await setRole(roleName || 'super_admin', transaction);

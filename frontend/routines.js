@@ -100,6 +100,7 @@ function renderRoutineCards() {
   }
 
   state.routines.forEach((routine) => {
+    const outputs = (routine.outputs || []).map((o) => (typeof o === 'string' ? { name: o, label: o } : o));
     const card = document.createElement('div');
     card.className = 'routine-card';
     if (state.selected && state.selected.name === routine.name) {
@@ -108,11 +109,11 @@ function renderRoutineCards() {
 
     const paramPreview = routine.params
       .slice(0, 3)
-      .map((p) => `<span class="chip">${p.name}${p.required ? '*' : ''}</span>`)
+      .map((p) => `<span class="chip">${p.label || p.name}${p.required ? '*' : ''}</span>`)
       .join('') || '<span class="chip muted">无</span>';
     const outputPreview =
-      routine.outputs && routine.outputs.length
-        ? routine.outputs.map((o) => `<span class="chip">${o}</span>`).join('')
+      outputs && outputs.length
+        ? outputs.map((o) => `<span class="chip">${o.label || o.name}</span>`).join('')
         : '<span class="chip muted">无 OUT</span>';
 
     card.innerHTML = `
@@ -154,7 +155,7 @@ function renderParamForm(values = {}) {
     const label = document.createElement('label');
     label.textContent = `${p.label || p.name}${p.required ? ' *' : ''}`;
     const input = document.createElement('input');
-    input.type = p.type === 'number' ? 'number' : 'text';
+    input.type = p.type === 'number' ? 'number' : p.type === 'date' ? 'date' : 'text';
     input.placeholder = p.placeholder || '';
     input.dataset.name = p.name;
     if (values[p.name] !== undefined && values[p.name] !== null) {
@@ -230,11 +231,43 @@ function ensureRequired(params) {
 }
 
 function renderOutputs(outputs) {
-  return '';
+  const defs = (state.selected?.outputs || []).map((o) => (typeof o === 'string' ? { name: o, label: o } : o));
+  const outputEntries = defs.length
+    ? defs.map((d) => [d.name, d.label || d.name])
+    : outputs
+      ? Object.keys(outputs).map((k) => [k, k])
+      : [];
+  if ((!outputs || !Object.keys(outputs).length) && !outputEntries.length) {
+    return '<div class="empty">无 OUT 参数</div>';
+  }
+  const rows = outputEntries
+    .map(([key, label]) => `<div class="kv-row"><span>${label}</span><strong>${outputs ? outputs[key] ?? '' : ''}</strong></div>`)
+    .join('');
+  return `<div class="kv-list">${rows}</div>`;
 }
 
 function renderResultSets(resultSets) {
-  return '';
+  if (!resultSets || !resultSets.length) {
+    return '<div class="empty">无结果集返回</div>';
+  }
+  return resultSets
+    .map((rows, idx) => {
+      if (!rows || !rows.length) {
+        return `<div class="empty">结果集 ${idx + 1} 为空</div>`;
+      }
+      const headers = Object.keys(rows[0]);
+      const head = headers.map((h) => `<th>${h}</th>`).join('');
+      const body = rows
+        .map(
+          (row) =>
+            `<tr>${headers
+              .map((h) => `<td>${row[h] === null || row[h] === undefined ? '' : row[h]}</td>`)
+              .join('')}</tr>`
+        )
+        .join('');
+      return `<div class="table-wrapper"><div class="result-title">结果集 ${idx + 1}</div><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+    })
+    .join('');
 }
 
 function renderResult() {
@@ -244,7 +277,18 @@ function renderResult() {
     return;
   }
   dom.routineResult.className = 'routine-result';
-  dom.routineResult.innerHTML = `<div class="result-block"><div class="result-title">执行状态</div><div class="muted">调用已完成，具体 OUT 参数和结果集不在此展示。</div></div>`;
+  const outputs = renderOutputs(state.result.outputs);
+  const sets = renderResultSets(state.result.resultSets);
+  dom.routineResult.innerHTML = `
+    <div class="result-block">
+      <div class="result-title">OUT 参数</div>
+      ${outputs}
+    </div>
+    <div class="result-block">
+      <div class="result-title">结果集</div>
+      ${sets}
+    </div>
+  `;
 }
 
 async function fetchExample() {
