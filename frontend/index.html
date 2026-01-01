@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hospital Admin Console</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="topbar">
+      <div class="brand">
+        <h1>Hospital Admin</h1>
+        <span>data-first</span>
+      </div>
+      <div class="role-switcher custom-select" id="roleSwitcher">
+        <label>角色</label>
+        <div id="roleDisplay" class="role-display">选择角色</div>
+        <div id="roleOptions" class="role-options"></div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <h2>可见对象</h2>
+        <div id="menu" class="menu-list"></div>
+      </aside>
+      <main class="content">
+        <div id="notification"></div>
+        <div class="panel sticky-panel">
+          <div class="panel-header">
+            <h3>列信息</h3>
+            <div class="panel-actions">
+              <div id="accessFlag" class="access-flag readonly">只读</div>
+              <button id="toggleColumns" class="button ghost">收起</button>
+            </div>
+          </div>
+          <div id="columnsWrapper" class="collapsible open">
+            <div id="columns" class="columns"></div>
+          </div>
+        </div>
+
+        <div class="panel sticky-panel">
+          <div class="panel-header">
+            <h3>数据</h3>
+          </div>
+          <div id="tableContainer" class="table-container"></div>
+          <div class="pagination">
+            <button id="prevPage" class="button">上一页</button>
+            <span id="pageInfo"></span>
+            <input id="pageJump" type="number" min="1" class="page-input" placeholder="页码" />
+            <button id="jumpGo" class="button">跳转</button>
+            <button id="nextPage" class="button primary">下一页</button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <div id="editModal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <div id="editTitle" class="modal-title">编辑数据</div>
+            <div id="editSubtitle" class="modal-subtitle"></div>
+          </div>
+          <button id="editClose" class="button">关闭</button>
+        </div>
+        <div class="modal-body">
+          <div id="editAccessFlag" class="access-flag readonly">只读</div>
+          <div id="editHint" class="edit-hint"></div>
+          <div id="editForm" class="edit-form"></div>
+        </div>
+        <div class="modal-footer">
+          <button id="saveEdit" class="button primary">保存修改</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
