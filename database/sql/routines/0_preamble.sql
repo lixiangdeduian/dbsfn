@@ -27,3 +27,7 @@ DROP PROCEDURE IF EXISTS sp_lab_order_bill_sync$$
 DROP PROCEDURE IF EXISTS sp_lab_order_prepare_results$$
 DROP PROCEDURE IF EXISTS sp_lab_result_upsert$$
 DROP PROCEDURE IF EXISTS sp_lab_result_verify$$
+DROP PROCEDURE IF EXISTS sp_stats_department_overview$$
+DROP PROCEDURE IF EXISTS sp_stats_billing_trend$$
+DROP PROCEDURE IF EXISTS sp_stats_doctor_workload$$
+DROP PROCEDURE IF EXISTS sp_stats_patient_outstanding$$

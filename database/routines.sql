@@ -9,4 +9,5 @@
 \. sql/routines/5_inpatient.sql
 \. sql/routines/6_pharmacy.sql
 \. sql/routines/7_lab.sql
+\. sql/routines/8_reporting.sql
 \. sql/routines/9_epilogue.sql
