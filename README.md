@@ -32,8 +32,12 @@ FLUSH PRIVILEGES;
 - `GET /api/roles`：返回角色列表（包含 `super_admin`）。
 - `GET /api/menu?role=role_doctor`：返回该角色可见的视图/表及 R/RW 标识。
 - `GET /api/objects/{objectName}?role=role_doctor&page=1&pageSize=20`：返回列信息与分页数据，自动按角色执行 `SET ROLE`。
+- `GET /api/routines`：返回可调用的存储过程/游标清单（名称/描述/参数定义）。
+- `GET /api/routines/{name}/example?role=role_admin`：生成指定例程的示例参数（已按角色 `SET ROLE` 防注入）。
+- `POST /api/routines/{name}/execute?role=role_admin`：传入 `params` 调用例程，返回 OUT 参数与结果集。
 
 ## 手动验收要点
 - 切换不同角色（如 `role_reception` vs `role_doctor`），左侧菜单对象集合应随 `4_grants.sql` 变化。
 - 同一对象在不同角色下的 `R/RW` 标识正确，RW 对象顶部会显示 ✏️ 写权限徽标。
 - 选择 `super_admin` 时能看到所有表与视图并具备写权限标识。
+- 顶栏点击「游标/过程」进入 `routines.html`，选择卡片后自动预填参数并能成功执行对应存储过程/游标，查看 OUT 参数与结果集。

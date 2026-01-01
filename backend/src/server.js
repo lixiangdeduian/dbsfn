@@ -14,15 +14,12 @@ const {
   canInsert
 } = require('./schemaService');
 const { resolveDisplayName } = require('./nameMap');
+const { sanitizeIdentifier, setRole } = require('./dbRole');
+const { listRoutines, buildRoutineExample, executeRoutine } = require('./routinesService');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-function sanitizeIdentifier(name) {
-  if (!name || !/^[a-zA-Z0-9_]+$/.test(name)) return null;
-  return name;
-}
 
 function nowStrings(offsetMinutes = 0) {
   const d = new Date(Date.now() + offsetMinutes * 60000);
@@ -39,26 +36,42 @@ async function displayNameFor(objectName) {
   return resolveDisplayName(objectName, meta ? meta.comment : '');
 }
 
-async function setRole(roleName, transaction) {
-  const role = roleName === 'super_admin' ? 'role_admin' : roleName;
-  const safeRole = sanitizeIdentifier(role);
-  if (!safeRole) {
-    throw new Error('Invalid role name');
-  }
-  try {
-    await sequelize.query(`SET ROLE ${safeRole}`, { transaction });
-  } catch (err) {
-    const hint = `DB 用户需要被授予所需角色，例如: GRANT role_admin, role_reception, role_doctor, role_nurse, role_pharmacist, role_lab_tech, role_cashier, role_patient TO '${config.dbUser}'@'${config.dbHost}'; SET DEFAULT ROLE ALL TO '${config.dbUser}'@'${config.dbHost}';`;
-    throw new Error(`${err.message}. ${hint}`);
-  }
-}
-
 app.get('/api/roles', async (_req, res) => {
   try {
     const roles = listRoles();
     res.json({ roles });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+app.get('/api/routines', async (_req, res) => {
+  try {
+    const routines = await listRoutines();
+    res.json({ routines });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.get('/api/routines/:name/example', async (req, res) => {
+  const role = req.query.role || 'super_admin';
+  try {
+    const data = await buildRoutineExample(req.params.name, role);
+    res.json({ role, routine: req.params.name, params: data.params });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+app.post('/api/routines/:name/execute', async (req, res) => {
+  const role = req.query.role || 'super_admin';
+  const { params } = req.body || {};
+  try {
+    const data = await executeRoutine(req.params.name, role, params || {});
+    res.json({ role, routine: req.params.name, ...data });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 

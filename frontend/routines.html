@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>例程执行 - Hospital Admin</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="topbar">
+      <div class="brand">
+        <h1>Hospital Admin</h1>
+        <span>procedures</span>
+      </div>
+      <div class="top-actions">
+        <a class="button ghost" href="index.html">数据浏览</a>
+        <div class="role-switcher custom-select" id="roleSwitcher">
+          <label>角色</label>
+          <div id="roleDisplay" class="role-display">选择角色</div>
+          <div id="roleOptions" class="role-options"></div>
+        </div>
+      </div>
+    </div>
+
+    <main class="content routines-content">
+      <div class="routines-hero">
+        <div>
+          <div class="eyebrow">存储过程 & 游标</div>
+          <h2>例程执行工作台</h2>
+          <p class="muted">在统一界面内查看例程说明、预填合法参数并执行，快速验证数据库游标/过程。</p>
+        </div>
+        <div class="panel-actions">
+          <button id="refreshRoutines" class="button ghost">刷新列表</button>
+        </div>
+      </div>
+
+      <div id="notification"></div>
+
+      <div id="routineGrid" class="routine-grid"></div>
+
+      <div class="panel routine-panel">
+        <div class="panel-header">
+          <div>
+            <h3 id="routineTitle">选择下方卡片以加载参数</h3>
+            <div id="routineSubtitle" class="muted"></div>
+          </div>
+          <div class="panel-actions">
+            <span id="routineCategory" class="pill subtle">例程</span>
+            <button id="prefillBtn" class="button ghost">预填示例</button>
+            <button id="runBtn" class="button primary">执行</button>
+          </div>
+        </div>
+        <div id="paramForm" class="routine-form"></div>
+        <div id="routineResult" class="routine-result empty">尚未执行任何例程。</div>
+      </div>
+    </main>
+
+    <script src="routines.js"></script>
+  </body>
+</html>
