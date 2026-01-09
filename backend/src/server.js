@@ -389,7 +389,8 @@ async function buildInsertExample(objectName, transaction) {
     const comment = (col.columnComment || '').toLowerCase();
     const autoIncrement = (col.extra || '').toLowerCase().includes('auto_increment');
     const maxLength = col.maxLength || 128;
-    const isUnique = uniqueCols.has(name);
+    const isPrimary = col.columnKey === 'PRI';
+    const isUnique = isPrimary || uniqueCols.has(name);
     const enumValues =
       col.columnType && col.columnType.toLowerCase().startsWith('enum(')
         ? col.columnType
@@ -483,10 +484,12 @@ async function buildInsertExample(objectName, transaction) {
 
     if (type.includes('int') || type.includes('decimal') || type.includes('numeric') || type.includes('float')) {
       const baseNumber =
-        sampleRow && sampleRow[name] !== undefined && sampleRow[name] !== null
+        isUnique || isPrimary
+          ? Number(Date.now() % 1000000)
+          : sampleRow && sampleRow[name] !== undefined && sampleRow[name] !== null
           ? sampleRow[name]
           : Number(Date.now() % 1000000);
-      example[name] = isUnique ? baseNumber + Math.floor(Math.random() * 1000) + 1 : baseNumber;
+      example[name] = isUnique ? baseNumber + Math.floor(Math.random() * 10000) + 1 : baseNumber;
       continue;
     }
 
