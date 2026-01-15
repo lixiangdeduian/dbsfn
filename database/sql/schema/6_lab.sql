@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS lab_order (
   PRIMARY KEY (lab_order_id),
   UNIQUE KEY uq_lab_order_no (lab_order_no),
   KEY ix_lab_order_encounter (encounter_id),
+  KEY ix_lab_order_doctor (doctor_id),
+  KEY ix_lab_order_status (status),
+  KEY ix_lab_order_time (ordered_at),
   CONSTRAINT fk_lab_order_encounter
     FOREIGN KEY (encounter_id) REFERENCES encounter (encounter_id)
     ON UPDATE CASCADE
@@ -96,6 +99,7 @@ CREATE TABLE IF NOT EXISTS lab_result (
   PRIMARY KEY (lab_result_id),
   UNIQUE KEY uq_lab_result_item (lab_order_item_id),
   KEY ix_lab_result_tech (technician_id),
+  KEY ix_lab_result_verifier (verified_by),
   CONSTRAINT fk_lab_result_item
     FOREIGN KEY (lab_order_item_id) REFERENCES lab_order_item (lab_order_item_id)
     ON UPDATE CASCADE

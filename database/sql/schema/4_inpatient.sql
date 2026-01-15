@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS bed (
   PRIMARY KEY (bed_id),
   UNIQUE KEY uq_bed_unique (ward_id, bed_no),
   KEY ix_bed_ward (ward_id),
+  KEY ix_bed_status (status),
   CONSTRAINT fk_bed_ward
     FOREIGN KEY (ward_id) REFERENCES ward (ward_id)
     ON UPDATE CASCADE
@@ -56,6 +57,9 @@ CREATE TABLE IF NOT EXISTS admission (
   PRIMARY KEY (admission_id),
   UNIQUE KEY uq_admission_no (admission_no),
   KEY ix_admission_patient_time (patient_id, admitted_at),
+  KEY ix_admission_dept (department_id),
+  KEY ix_admission_doctor (attending_doctor_id),
+  KEY ix_admission_status (status),
   CONSTRAINT fk_admission_patient
     FOREIGN KEY (patient_id) REFERENCES patient (patient_id)
     ON UPDATE CASCADE

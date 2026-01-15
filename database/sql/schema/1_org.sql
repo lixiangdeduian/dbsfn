@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS department (
   PRIMARY KEY (department_id),
   UNIQUE KEY uq_department_code (department_code),
   KEY ix_department_parent (parent_department_id),
+  KEY ix_department_name (department_name),
   CONSTRAINT fk_department_parent
     FOREIGN KEY (parent_department_id) REFERENCES department (department_id)
     ON UPDATE CASCADE
@@ -39,7 +40,8 @@ CREATE TABLE IF NOT EXISTS staff (
   PRIMARY KEY (staff_id),
   UNIQUE KEY uq_staff_no (staff_no),
   UNIQUE KEY uq_staff_id_card (id_card_no),
-  KEY ix_staff_name (staff_name)
+  KEY ix_staff_name (staff_name),
+  KEY ix_staff_phone (phone)
 ) ENGINE=InnoDB COMMENT='员工/医护人员表';
 
 CREATE TABLE IF NOT EXISTS staff_department (

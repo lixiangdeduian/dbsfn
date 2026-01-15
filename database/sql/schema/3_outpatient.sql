@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS doctor_schedule (
   PRIMARY KEY (schedule_id),
   UNIQUE KEY uq_schedule_unique (doctor_id, schedule_date, start_time, end_time),
   KEY ix_schedule_dept_date (department_id, schedule_date),
+  KEY ix_schedule_date (schedule_date),
   CONSTRAINT fk_schedule_doctor
     FOREIGN KEY (doctor_id) REFERENCES staff (staff_id)
     ON UPDATE CASCADE
@@ -48,6 +49,8 @@ CREATE TABLE IF NOT EXISTS registration (
   UNIQUE KEY uq_registration_unique (patient_id, schedule_id),
   KEY ix_registration_patient_time (patient_id, registered_at),
   KEY ix_registration_schedule (schedule_id),
+  KEY ix_registration_status (status),
+  KEY ix_registration_time (registered_at),
   CONSTRAINT fk_registration_patient
     FOREIGN KEY (patient_id) REFERENCES patient (patient_id)
     ON UPDATE CASCADE
@@ -79,6 +82,8 @@ CREATE TABLE IF NOT EXISTS encounter (
   UNIQUE KEY uq_encounter_registration (registration_id),
   KEY ix_encounter_patient_time (patient_id, started_at),
   KEY ix_encounter_doctor_time (doctor_id, started_at),
+  KEY ix_encounter_dept (department_id),
+  KEY ix_encounter_status (status),
   CONSTRAINT fk_encounter_patient
     FOREIGN KEY (patient_id) REFERENCES patient (patient_id)
     ON UPDATE CASCADE
@@ -115,6 +120,7 @@ CREATE TABLE IF NOT EXISTS diagnosis (
   PRIMARY KEY (diagnosis_id),
   KEY ix_diagnosis_encounter (encounter_id),
   KEY ix_diagnosis_name (diagnosis_name),
+  KEY ix_diagnosis_doctor (doctor_id),
   CONSTRAINT fk_diagnosis_encounter
     FOREIGN KEY (encounter_id) REFERENCES encounter (encounter_id)
     ON UPDATE CASCADE

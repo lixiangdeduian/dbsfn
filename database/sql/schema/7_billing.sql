@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS charge (
   UNIQUE KEY uq_charge_no (charge_no),
   KEY ix_charge_encounter_time (encounter_id, charged_at),
   KEY ix_charge_item (charge_item_id),
+  KEY ix_charge_source (source_type, source_id),
+  KEY ix_charge_status (status),
   CONSTRAINT fk_charge_encounter
     FOREIGN KEY (encounter_id) REFERENCES encounter (encounter_id)
     ON UPDATE CASCADE
@@ -147,6 +149,7 @@ CREATE TABLE IF NOT EXISTS refund (
   PRIMARY KEY (refund_id),
   UNIQUE KEY uq_refund_no (refund_no),
   KEY ix_refund_payment_time (payment_id, refunded_at),
+  KEY ix_refund_status (status),
   CONSTRAINT fk_refund_payment
     FOREIGN KEY (payment_id) REFERENCES payment (payment_id)
     ON UPDATE CASCADE

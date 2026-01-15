@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS prescription (
   PRIMARY KEY (prescription_id),
   UNIQUE KEY uq_prescription_no (prescription_no),
   KEY ix_prescription_encounter (encounter_id),
+  KEY ix_prescription_doctor (doctor_id),
+  KEY ix_prescription_status (status),
+  KEY ix_prescription_issued (issued_at),
   CONSTRAINT fk_prescription_encounter
     FOREIGN KEY (encounter_id) REFERENCES encounter (encounter_id)
     ON UPDATE CASCADE
@@ -95,6 +98,7 @@ CREATE TABLE IF NOT EXISTS dispense (
   updated_by VARCHAR(128) NULL COMMENT '更新者（数据库用户）',
   PRIMARY KEY (dispense_id),
   UNIQUE KEY uq_dispense_prescription (prescription_id),
+  KEY ix_dispense_pharmacist (pharmacist_id),
   CONSTRAINT fk_dispense_prescription
     FOREIGN KEY (prescription_id) REFERENCES prescription (prescription_id)
     ON UPDATE CASCADE
