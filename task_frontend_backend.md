@@ -1,7 +1,5 @@
 # 任务说明
 
-你是一个全栈工程师，请基于本仓库的 MySQL 医院管理系统数据库（库名 `hospital_test`）实现一个“后台管理系统”前后端，并保证与现有的安全/角色/视图设计一致。
-
 ### 一、必须读取/遵循的仓库事实（强约束）
 
 1. 数据库脚本入口位于 `database/`：`schema.sql`、`triggers.sql`、`routines.sql`、`security.sql`、`seed.sql`。

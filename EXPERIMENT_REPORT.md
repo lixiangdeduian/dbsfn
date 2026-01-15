@@ -2,7 +2,7 @@
 
 ## 一、系统调查
 
-本项目旨在开发一个完整的**医院信息管理系统**，用于模拟和管理医院日常业务流程。通过深入调研医院各科室的业务需求，我们调研了以下核心业务场景与技术挑战：
+本项目旨在开发一个完整的**医院信息管理系统**，用于模拟和管理医院日常业务流程。通过深入调研医院各科室的业务需求，调研了以下核心业务场景与技术挑战：
 
 ### 1.1 业务背景与痛点
 医院业务流程复杂，涉及多个科室协作。传统管理方式存在以下问题：
@@ -188,75 +188,290 @@
     *   **费用中心**: 统一管理所有收费项目（挂号、药品、检验、床位费）。
     *   **收银台**: 生成账单（Invoice），支持多种支付方式，处理退款业务。
 
-## 四 数据库设计
-数据库设计严格遵循 **第三范式 (3NF)**，并在关键业务表通过反范式化适当优化查询性能。
+## 四、数据库设计
 
-### 4.1 概念结构设计
-核心实体关系如下：
-*   **Patient (1) : (N) Registration**: 一个患者可多次挂号。
-*   **Registration (1) : (0..1) Encounter**: 一次挂号对应一次就诊（未就诊则无）。
-*   **Encounter (1) : (N) Diagnosis**: 一次就诊可有多个诊断结果。
-*   **Encounter (1) : (N) Prescription**: 一次就诊可开具多张处方。
-*   **Prescription (1) : (N) Prescription_Item**: 一张处方包含多种药品。
-*   **Encounter (1) : (N) Charge**: 所有的医疗行为最终都转化为费用记录。
-*   **Department (1) : (N) Staff**: 部门与员工通过中间表关联（M:N）。
+本系统数据库设计严格遵循 **第三范式 (3NF)**，并在关键业务表通过反范式化适当优化查询性能。共设计了 7 个核心业务模块，包含 27 张数据表。以下是详细的表结构设计。
 
-### 4.2 逻辑结构设计
-核心业务数据表的逻辑结构定义如下：
+### 4.1 组织与人员模块 (Organization & Staff)
 
-1.  **patient (患者表)**
-    *   `patient_id` (PK): 内部主键，自增。
-    *   `patient_no`: 业务主键，唯一索引，用于病历号检索。
-    *   `id_card_no`: 身份证号，唯一索引。
-    *   `gender`: 枚举 (M/F/U)。
+该模块负责管理医院的组织架构（科室）及人力资源（医护人员）。
 
-2.  **doctor_schedule (医生排班表)**
-    *   `schedule_id` (PK): 主键。
-    *   `doctor_id` (FK): 关联员工。
-    *   `schedule_date`, `start_time`, `end_time`: 复合唯一索引，防止排班冲突。
-    *   `quota`: 号源限额。
+**1. department (科室表)**
+*   **描述**: 存储医院的科室层级结构，支持无限级树状分类。
+*   **字段**:
+    *   `department_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `department_code`: VARCHAR(32), 部门编码，唯一索引 (Unique)。
+    *   `department_name`: VARCHAR(100), 部门名称。
+    *   `parent_department_id`: BIGINT UNSIGNED, 上级部门ID，外键引用自身，实现树状结构。
+    *   `is_active`: TINYINT(1), 是否启用。
 
-3.  **encounter (就诊记录表)**
-    *   `encounter_id` (PK): 主键。
-    *   `registration_id` (FK): 关联挂号单（门诊）。
-    *   `status`: 状态机 (OPEN -> CLOSED)。
-    *   `type`: 就诊类型 (OUTPATIENT/INPATIENT)。
+**2. staff (员工表)**
+*   **描述**: 存储医生、护士、药师、技师等所有医院职工信息。
+*   **字段**:
+    *   `staff_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `staff_no`: VARCHAR(32), 员工工号，唯一索引 (Unique)。
+    *   `staff_name`: VARCHAR(100), 员工姓名。
+    *   `gender`: ENUM('M','F','U'), 性别。
+    *   `title`: VARCHAR(50), 职称（如主任医师、护士长）。
+    *   `id_card_no`: VARCHAR(32), 身份证号，唯一索引。
+    *   `phone`: VARCHAR(32), 联系电话。
+    *   `is_active`: TINYINT(1), 是否在职。
 
-4.  **bed_assignment (床位分配表)**
-    *   `assignment_id` (PK): 主键。
-    *   `bed_id` (FK): 关联床位。
-    *   `patient_id` (FK): 关联患者。
-    *   `start_time`, `end_time`: 记录占用时间段。
-    *   *约束*: 利用触发器确保同一床位在同一时间段不被重复分配。
+**3. staff_department (员工-科室关联表)**
+*   **描述**: 解决员工多点执业或归属多个部门的需求（多对多关系）。
+*   **字段**:
+    *   `staff_department_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `staff_id`: BIGINT UNSIGNED, 员工ID，外键。
+    *   `department_id`: BIGINT UNSIGNED, 部门ID，外键。
+    *   `is_primary`: TINYINT(1), 是否为主科室。
 
-5.  **charge (费用明细表)**
-    *   `charge_id` (PK): 主键。
-    *   `source_type`: 费用来源 (PRESCRIPTION/LAB/REGISTRATION)。
-    *   `source_id`: 来源单据ID。
-    *   `amount`: 金额。
+### 4.2 患者与账号模块 (Patient & Account)
 
-### 4.3 物理结构设计
-*   **存储引擎**: 全面采用 **InnoDB** 引擎，支持事务 (ACID) 和行级锁。
-*   **索引优化**:
-    *   所有外键字段均建立普通索引 (`KEY`)，优化连接查询 (JOIN) 性能。
-    *   对高频查询字段（如 `patient_name`, `phone`, `created_at`）建立索引。
-    *   对业务唯一性字段（如 `username`, `registration_no`）建立唯一索引 (`UNIQUE KEY`)。
-*   **字符集**: 统一使用 `utf8mb4`，支持全Unicode字符（如生僻字、Emoji）。
+该模块负责患者全生命周期身份管理及系统的统一认证。
 
-## 4.4 安全性与完整性设计
+**4. patient (患者表)**
+*   **描述**: 医院的核心实体，记录患者的基本人口学信息。
+*   **字段**:
+    *   `patient_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `patient_no`: VARCHAR(32), 病案号，唯一索引 (Unique)。
+    *   `patient_name`: VARCHAR(100), 患者姓名。
+    *   `gender`: ENUM('M','F','U'), 性别。
+    *   `birth_date`: DATE, 出生日期。
+    *   `id_card_no`: VARCHAR(32), 身份证号，唯一索引。
+    *   `phone`: VARCHAR(32), 联系电话。
+    *   `blood_type`: ENUM, 血型。
+    *   `allergy_history`: VARCHAR(500), 过敏史。
 
-1.  **用户认证与授权 (RBAC)**:
-    *   定义了 `role_doctor`, `role_nurse`, `role_admin` 等8种数据库角色。
-    *   通过 SQL `GRANT` 语句授予角色对特定表或视图的 `SELECT`, `INSERT`, `UPDATE` 权限。
-    *   后端连接池不使用 `root` 用户，而是根据登录身份切换到受限用户。
+**5. user_account (用户账号表)**
+*   **描述**: 统一认证中心，支持员工和患者登录。
+*   **字段**:
+    *   `user_account_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `username`: VARCHAR(128), 登录用户名，唯一索引。
+    *   `password_hash`: VARCHAR(255), 密码哈希。
+    *   `staff_id`: BIGINT UNSIGNED, 绑定员工ID（外键，可空）。
+    *   `patient_id`: BIGINT UNSIGNED, 绑定患者ID（外键，可空）。
+*   **约束**: `CHECK ((staff_id IS NULL) <> (patient_id IS NULL))`，确保账号必须且只能绑定员工或患者其中之一。
 
-2.  **行级安全策略 (Row-Level Security)**:
-    *   利用 **视图 (Views)** 隔离数据。例如，通过 `view_my_encounters` 视图只显示当前登录医生负责的患者数据。
+### 4.3 门诊业务模块 (Outpatient)
 
-3.  **数据完整性约束**:
-    *   **主外键约束**: 保证数据引用的一致性。
-    *   **Check 约束**: 限制数值范围（如 `end_time > start_time`）。
-    *   **触发器校验**: 编写 `BEFORE INSERT` 触发器，在数据写入前进行复杂的业务规则检查（如库存是否充足）。
+覆盖从医生排班、患者挂号、就诊到诊断的完整门诊流程。
+
+**6. doctor_schedule (医生排班表)**
+*   **描述**: 定义医生在特定日期和时段的出诊计划。
+*   **字段**:
+    *   `schedule_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `doctor_id`: BIGINT UNSIGNED, 医生ID。
+    *   `department_id`: BIGINT UNSIGNED, 科室ID。
+    *   `schedule_date`: DATE, 排班日期。
+    *   `start_time` / `end_time`: TIME, 起止时间。
+    *   `quota`: INT UNSIGNED, 号源限额。
+    *   `registration_fee`: DECIMAL(10,2), 挂号费。
+*   **约束**: 复合唯一索引 (`doctor_id`, `schedule_date`, `start_time`, `end_time`) 防止排班冲突。
+
+**7. registration (挂号表)**
+*   **描述**: 记录患者的预约挂号信息。
+*   **字段**:
+    *   `registration_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `registration_no`: VARCHAR(40), 挂号单号，唯一索引。
+    *   `patient_id`: BIGINT UNSIGNED, 患者ID。
+    *   `schedule_id`: BIGINT UNSIGNED, 排班ID。
+    *   `status`: ENUM('CONFIRMED','CANCELLED','COMPLETED'), 挂号状态。
+
+**8. encounter (就诊记录表)**
+*   **描述**: 医疗事件的核心枢纽，统一了门诊和住院的就诊入口。
+*   **字段**:
+    *   `encounter_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `encounter_no`: VARCHAR(40), 就诊号，唯一索引。
+    *   `patient_id`: BIGINT UNSIGNED, 患者ID。
+    *   `doctor_id`: BIGINT UNSIGNED, 接诊医生ID。
+    *   `department_id`: BIGINT UNSIGNED, 就诊科室ID。
+    *   `encounter_type`: ENUM('OUTPATIENT','INPATIENT'), 就诊类型。
+    *   `status`: ENUM('OPEN','CLOSED','CANCELLED'), 就诊状态。
+    *   `started_at` / `ended_at`: DATETIME, 就诊起止时间。
+
+**9. diagnosis (诊断表)**
+*   **描述**: 记录医生对患者的疾病判断。
+*   **字段**:
+    *   `diagnosis_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `encounter_id`: BIGINT UNSIGNED, 就诊ID。
+    *   `diagnosis_name`: VARCHAR(200), 诊断名称。
+    *   `diagnosis_type`: ENUM('PRIMARY','SECONDARY'), 主/次诊断。
+    *   `doctor_id`: BIGINT UNSIGNED, 诊断医生ID。
+
+### 4.4 住院业务模块 (Inpatient)
+
+管理病区资源、患者入院、出院及床位流转。
+
+**10. ward (病区表)**
+*   **描述**: 住院部的物理区域划分。
+*   **字段**:
+    *   `ward_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `ward_code`: VARCHAR(32), 病区编码。
+    *   `ward_name`: VARCHAR(100), 病区名称。
+    *   `department_id`: BIGINT UNSIGNED, 所属科室。
+
+**11. bed (床位表)**
+*   **描述**: 最小的住院资源单元。
+*   **字段**:
+    *   `bed_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `ward_id`: BIGINT UNSIGNED, 所属病区。
+    *   `bed_no`: VARCHAR(32), 床位号。
+    *   `status`: ENUM('AVAILABLE','MAINTENANCE','DISABLED'), 床位状态。
+
+**12. admission (入院记录表)**
+*   **描述**: 记录患者的入院登记信息。
+*   **字段**:
+    *   `admission_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `admission_no`: VARCHAR(40), 住院号，唯一索引。
+    *   `patient_id`: BIGINT UNSIGNED, 患者ID。
+    *   `attending_doctor_id`: BIGINT UNSIGNED, 主治医生ID。
+    *   `admitted_at` / `discharged_at`: DATETIME, 入/出院时间。
+    *   `status`: ENUM('ADMITTED','DISCHARGED','CANCELLED')。
+
+**13. bed_assignment (床位分配表)**
+*   **描述**: 记录床位的时间维度占用情况。
+*   **字段**:
+    *   `bed_assignment_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `admission_id`: BIGINT UNSIGNED, 入院记录ID。
+    *   `bed_id`: BIGINT UNSIGNED, 床位ID。
+    *   `start_at` / `end_at`: DATETIME, 占用起止时间。
+*   **约束**: 触发器确保同一床位在同一时间段内不被重叠分配。
+
+### 4.5 药品与处方模块 (Pharmacy)
+
+管理药品目录、电子处方开立、审核及发药流程。
+
+**14. drug (药品目录表)**
+*   **描述**: 医院药品字典。
+*   **字段**:
+    *   `drug_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `drug_code`: VARCHAR(32), 药品编码，唯一索引。
+    *   `drug_name`: VARCHAR(200), 药品名称。
+    *   `specification`: VARCHAR(200), 规格。
+    *   `unit`: VARCHAR(20), 单位。
+    *   `unit_price`: DECIMAL(10,2), 单价。
+
+**15. prescription (处方表)**
+*   **描述**: 医生开具的用药指令单头信息。
+*   **字段**:
+    *   `prescription_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `prescription_no`: VARCHAR(40), 处方号，唯一索引。
+    *   `encounter_id`: BIGINT UNSIGNED, 就诊ID。
+    *   `doctor_id`: BIGINT UNSIGNED, 开方医生。
+    *   `status`: ENUM('DRAFT','ISSUED','DISPENSED','CANCELLED')。
+    *   `total_amount`: DECIMAL(12,2), 总金额。
+
+**16. prescription_item (处方明细表)**
+*   **描述**: 处方中具体的药品清单。
+*   **字段**:
+    *   `prescription_item_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `prescription_id`: BIGINT UNSIGNED, 处方ID。
+    *   `drug_id`: BIGINT UNSIGNED, 药品ID。
+    *   `quantity`: DECIMAL(12,2), 数量。
+    *   `unit_price`: DECIMAL(10,2), 单价。
+    *   `amount`: DECIMAL(12,2), 明细金额。
+
+**17. dispense (发药记录表)**
+*   **描述**: 药房对处方的执行记录。
+*   **字段**:
+    *   `dispense_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `prescription_id`: BIGINT UNSIGNED, 处方ID。
+    *   `pharmacist_id`: BIGINT UNSIGNED, 发药药师ID。
+    *   `dispensed_at`: DATETIME, 发药时间。
+
+### 4.6 检验检查模块 (Lab)
+
+管理检验项目定义、检验申请、样本采集及结果录入。
+
+**18. lab_test (检验项目表)**
+*   **描述**: 检验服务目录（如血常规、肝功能）。
+*   **字段**:
+    *   `lab_test_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `test_code`: VARCHAR(32), 项目编码。
+    *   `test_name`: VARCHAR(200), 项目名称。
+    *   `reference_range`: VARCHAR(200), 参考范围。
+    *   `unit_price`: DECIMAL(10,2), 单价。
+
+**19. lab_order (检验单表)**
+*   **描述**: 医生开具的检验申请。
+*   **字段**:
+    *   `lab_order_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `lab_order_no`: VARCHAR(40), 检验单号。
+    *   `encounter_id`: BIGINT UNSIGNED, 就诊ID。
+    *   `status`: ENUM('ORDERED','COLLECTED','REPORTED','CANCELLED')。
+
+**20. lab_order_item (检验明细表)**
+*   **描述**: 检验单包含的具体项目。
+*   **字段**:
+    *   `lab_order_item_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `lab_order_id`: BIGINT UNSIGNED, 检验单ID。
+    *   `lab_test_id`: BIGINT UNSIGNED, 检验项目ID。
+
+**21. lab_result (检验结果表)**
+*   **描述**: 针对每个检验项目的具体结果。
+*   **字段**:
+    *   `lab_result_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `lab_order_item_id`: BIGINT UNSIGNED, 检验明细ID。
+    *   `result_value`: VARCHAR(200), 结果值。
+    *   `result_flag`: ENUM('HIGH','LOW','NORMAL'...), 异常标识。
+    *   `technician_id`: BIGINT UNSIGNED, 检验技师。
+
+### 4.7 收费与结算模块 (Billing)
+
+实现费用的统一汇聚、发票生成、支付与退款，形成财务闭环。
+
+**22. charge_catalog (收费项目表)**
+*   **描述**: 基础收费字典（非药品类，如诊查费）。
+*   **字段**:
+    *   `charge_item_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `item_code`: VARCHAR(32), 项目编码。
+    *   `item_name`: VARCHAR(200), 项目名称。
+    *   `unit_price`: DECIMAL(10,2), 单价。
+
+**23. charge (费用明细表)**
+*   **描述**: 系统中所有费用的原子记录，支持追溯来源。
+*   **字段**:
+    *   `charge_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `charge_no`: VARCHAR(40), 费用单号。
+    *   `encounter_id`: BIGINT UNSIGNED, 就诊ID。
+    *   `source_type`: ENUM('PRESCRIPTION','LAB','REGISTRATION','MANUAL'), 费用来源。
+    *   `source_id`: BIGINT UNSIGNED, 来源单据ID。
+    *   `amount`: DECIMAL(12,2), 金额。
+    *   `status`: ENUM('UNBILLED','BILLED','CANCELLED'), 状态。
+
+**24. invoice (发票表)**
+*   **描述**: 费用的聚合载体，面向患者的结算单。
+*   **字段**:
+    *   `invoice_id` (PK): BIGINT UNSIGNED, 自增主键。
+    *   `invoice_no`: VARCHAR(40), 发票号。
+    *   `patient_id`: BIGINT UNSIGNED, 患者ID。
+    *   `total_amount`: DECIMAL(12,2), 总金额。
+    *   `paid_amount`: DECIMAL(12,2), 已付金额。
+    *   `status`: ENUM('OPEN','PAID','VOID'), 状态。
+
+**25. invoice_line (发票明细关联表)**
+*   **描述**: 连接 Invoice 与 Charge 的中间表。
+*   **字段**:
+    *   `invoice_line_id` (PK): BIGINT UNSIGNED。
+    *   `invoice_id`: BIGINT UNSIGNED, 发票ID。
+    *   `charge_id`: BIGINT UNSIGNED, 费用ID。
+
+**26. payment (支付记录表)**
+*   **描述**: 针对发票的资金流入记录。
+*   **字段**:
+    *   `payment_id` (PK): BIGINT UNSIGNED。
+    *   `payment_no`: VARCHAR(40), 支付单号。
+    *   `invoice_id`: BIGINT UNSIGNED, 发票ID。
+    *   `method`: ENUM('CASH','WECHAT'...), 支付方式。
+    *   `amount`: DECIMAL(12,2), 支付金额。
+
+**27. refund (退款记录表)**
+*   **描述**: 针对支付的资金流出记录。
+*   **字段**:
+    *   `refund_id` (PK): BIGINT UNSIGNED。
+    *   `refund_no`: VARCHAR(40), 退款单号。
+    *   `payment_id`: BIGINT UNSIGNED, 原支付记录ID。
+    *   `amount`: DECIMAL(12,2), 退款金额。
 
 ## 五、数据库创建和数据加载
 
@@ -418,7 +633,7 @@
 
 ### 5.3 核心业务逻辑：存储过程
 
-我们将复杂的事务性业务逻辑下沉至数据库层，通过 27 个存储过程实现，以减少网络交互并保证 ACID 特性。主要分为以下七大类：
+将复杂的事务性业务逻辑下沉至数据库层，通过 27 个存储过程实现，以减少网络交互并保证 ACID 特性。主要分为以下七大类：
 
 #### 5.3.1 患者管理
 *   `sp_patient_create`: 核心建档过程。接收患者基本信息，自动生成全局唯一的 UUID 病历号 (`patient_no`)，并完成数据插入。
@@ -510,7 +725,7 @@
 
 ### 5.6 数据加载与测试数据生成
 
-为了验证系统性能和功能，我们设计了多层次的数据加载方案：
+为了验证系统性能和功能，设计了多层次的数据加载方案：
 
 1.  **基础数据初始化**: 通过 `database/sql/seed/2_run.sql` 脚本调用 `sp_seed_hospital` 存储过程。该过程利用随机算法生成科室结构、医护人员、药品目录等基础字典数据。
 2.  **大规模性能测试数据**: 开发了 Node.js 脚本 `backend/scripts/performance/generate_data.js`，用于生成千万级的大规模测试数据。该脚本可快速生成 10,000+ 患者档案和 50,000+ 就诊记录，用于验证数据库索引在海量数据下的查询性能（结果见第六部分测试报告）。
@@ -689,7 +904,7 @@
 
 ### 7.4 性能测试结果
 
-为了评估系统在稍大数据量下的表现，我们生成了包含 **10,000 名患者** 和 **50,000 条就诊记录** 的测试数据集，并针对关键查询路径进行了基准测试。
+为了评估系统在稍大数据量下的表现，生成了包含 **10,000 名患者** 和 **50,000 条就诊记录** 的测试数据集，并针对关键查询路径进行了基准测试。
 
 | 查询场景 | SQL 示例 | 平均响应时间 (ms) | 评价 |
 | :--- | :--- | :--- | :--- |
@@ -724,3 +939,63 @@
 1.  **功能完备性**: 系统涵盖了医院核心业务流程，并实现了细粒度的权限控制。
 2.  **性能表现**: 数据库设计规范，索引策略合理，在万级数据量下查询响应迅速。
 3.  **工程化实践**: 采用了分层架构和自动化测试，代码结构清晰，易于维护和扩展。
+
+## 九、实验思考题
+
+### 1. 功能与数据的关系
+**问题**: 数据库应用系统的功能设计对数据库设计有何影响？
+
+**本项目实践**:
+在本项目中，功能需求直接驱动了数据库的物理设计和逻辑封装：
+*   **查询性能驱动索引设计**: 针对“患者病历搜索”、“医生排班查询”等高频查询功能，在 `patient_name`, `id_card_no`, `schedule_date` 等字段上建立了索引，显著提升了读取性能。
+*   **事务逻辑驱动存储过程**: 为了支持复杂的“挂号”、“结算”等事务性功能，将业务逻辑封装在存储过程（如 `sp_outpatient_register`）中，而不是写在应用层。这不仅减少了网络交互，还确保了数据的一致性。
+*   **安全需求驱动视图设计**: 为了实现“医生只能查看自己患者”的安全功能需求，设计了 `view_my_encounters` 视图，利用数据库层面的过滤机制满足应用层的权限展示需求。
+
+### 2. 协调设计
+**问题**: 如何协调数据库应用系统的功能设计与数据库设计？
+
+**本项目实践**:
+本项目采用了“**数据库驱动 (Database-Driven)**”与“**迭代优化**”相结合的协调策略：
+*   **Schema First (结构先行)**: 优先确定核心实体（如患者、科室、员工）的 E-R 图和表结构，确保数据模型的稳定性。
+*   **API 契约化**: 数据库开发人员提前定义好存储过程的输入输出参数（即 API 契约），应用开发人员据此并行开发前端界面和后端路由，无需等待数据库内部逻辑完全实现。
+*   **元数据驱动**: 后端服务实现了 Schema Introspection（元数据内省），能够动态读取数据库结构生成前端表单。这意味着当数据库表结构微调时，应用层往往无需修改代码即可自动适配，极大地降低了沟通成本。
+
+### 3. 类型映射
+**问题**: 程序设计语言的数据类型与数据库的数据类型如何互操作？
+
+**本项目实践**:
+本项目后端使用 Node.js (JavaScript)，数据库为 MySQL，两者的数据类型互操作通过以下方式实现（详见 6.4.1 节）：
+*   **日期时间**: JavaScript 的 `Date` 对象在传输时转换为 ISO 8601 字符串，后端在拼接 SQL 时将其格式化为 MySQL 标准的 `YYYY-MM-DD HH:mm:ss` 字符串。
+*   **布尔值**: MySQL 使用 `TINYINT(1)` 存储布尔值。后端在读取时将 `1`/`0` 转换为 JS 的 `true`/`false`；写入时进行反向转换。
+*   **空值处理**: JavaScript 的 `undefined` 或空字符串 `""` 在构建 SQL 参数时，被显式转换为 SQL 的 `NULL` 关键字，以触发数据库的默认值逻辑或空值约束。
+*   **数值类型**: JavaScript 的 `Number` 类型涵盖了整数和浮点数，与 MySQL 的 `INT` / `DECIMAL` 自动兼容，但在涉及金额计算时，依赖数据库的 `DECIMAL` 类型保证精度，应用层仅作透传展示。
+
+## 十、自由探索任务实践
+
+为了提升项目的工程化水平，在开发过程中探索并实践了以下工具和方法：
+
+### 1. 版本控制 (Git)
+建立了 Git 仓库对项目进行全生命周期管理，并采用 **Feature Branch Workflow** 工作流：
+*   **分支策略**: `main` 分支保持随时可发布状态，所有新功能（如“挂号模块”）都在 `feature/registration` 等独立分支上开发，经测试无误后通过 Pull Request 合并。
+*   **配置管理**: 在 `backend/.gitignore` 中配置了 `node_modules/`、`.env` 等规则，防止依赖包和敏感配置泄露。
+*   **冲突解决**: 针对 SQL 脚本的冲突（多人同时修改 `schema.sql`），约定了“增量更新”原则，即不修改原有 SQL，而是新建 `alter_table_xx.sql` 脚本，避免了大部分合并冲突。
+
+### 2. 文档工程化 (Docs as Code)
+摒弃了传统的 Word 文档，全程使用 **Markdown** 编写需求文档 (`task_cursor.md`、`task_frontend.md`等) 和实验报告 (`EXPERIMENT_REPORT.md`)。
+*   **优势**: 文档与代码同库存储，版本同步更新，确保了文档的时效性。
+*   **协作**: 利用 Git 的 Diff 功能，文档的每一次修改（如需求变更）都有迹可循。
+
+### 3. Mock 数据生成 (Data Seeding)
+为了验证数据库在万级数据量下的性能，编写了自动化数据生成脚本 `backend/scripts/performance/generate_data.js`。
+
+*   **实现原理**:
+    *   利用 Node.js 的 `fs` 模块，以流式写入 (`createWriteStream`) 的方式生成包含大量 `INSERT` 语句的 SQL 脚本 `seed_large_data.sql`。
+    *   使用随机算法生成逼真的测试数据，如随机生成的身份证号、手机号（`13xxxxxxxxx`）及就诊时间分布。
+
+*   **性能优化**:
+    *   **批量插入**: 将每 1000 条记录合并为一条 `INSERT` 语句，大幅减少了数据库的 I/O 次数。
+    *   **事务控制**: 在导入脚本首尾分别添加 `SET AUTOCOMMIT=0` 和 `COMMIT`，并临时关闭外键检查 (`SET FOREIGN_KEY_CHECKS=0`)，使得 6 万条数据的导入时间控制在秒级。
+    *   **配置化**: 通过 `CONFIG` 对象可灵活调整生成规模（如将患者数从 1 万调整至 10 万），便于进行不同量级的压力测试。
+
+通过这些工程化实践，不仅完成了一个功能可用的系统，更模拟了真实软件工程中的开发协作与性能调优过程。
+
