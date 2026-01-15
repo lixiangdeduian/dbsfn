@@ -69,14 +69,20 @@ a {
   letter-spacing: 0.2em;
 }
 
-.role-switcher {
+.role-switcher,
+.user-switcher {
   display: flex;
   align-items: center;
   gap: 8px;
   position: relative;
 }
 
-.role-switcher label {
+.user-switcher {
+  margin-left: 10px;
+}
+
+.role-switcher label,
+.user-switcher label {
   font-size: 13px;
   color: var(--muted);
 }

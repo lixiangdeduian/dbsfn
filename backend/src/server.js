@@ -45,6 +45,31 @@ app.get('/api/roles', async (_req, res) => {
   }
 });
 
+app.get('/api/users', async (req, res) => {
+  const role = req.query.role;
+  if (!role) return res.json({ users: [] });
+
+  try {
+    let users = [];
+    if (role === 'role_doctor') {
+      users = await sequelize.query("SELECT s.staff_name as name, ua.username FROM staff s JOIN user_account ua ON s.staff_id = ua.staff_id WHERE s.title = 'Doctor' AND ua.is_active = 1", { type: QueryTypes.SELECT });
+    } else if (role === 'role_nurse') {
+       users = await sequelize.query("SELECT s.staff_name as name, ua.username FROM staff s JOIN user_account ua ON s.staff_id = ua.staff_id WHERE s.title = 'Nurse' AND ua.is_active = 1", { type: QueryTypes.SELECT });
+    } else if (role === 'role_pharmacist') {
+       users = await sequelize.query("SELECT s.staff_name as name, ua.username FROM staff s JOIN user_account ua ON s.staff_id = ua.staff_id WHERE s.title = 'Pharmacist' AND ua.is_active = 1", { type: QueryTypes.SELECT });
+    } else if (role === 'role_lab_tech') {
+       users = await sequelize.query("SELECT s.staff_name as name, ua.username FROM staff s JOIN user_account ua ON s.staff_id = ua.staff_id WHERE s.title = 'Technician' AND ua.is_active = 1", { type: QueryTypes.SELECT });
+    } else if (role === 'role_patient') {
+       users = await sequelize.query("SELECT p.patient_name as name, ua.username FROM patient p JOIN user_account ua ON p.patient_id = ua.patient_id WHERE ua.is_active = 1", { type: QueryTypes.SELECT });
+    } else {
+        users = await sequelize.query("SELECT s.staff_name as name, ua.username FROM staff s JOIN user_account ua ON s.staff_id = ua.staff_id WHERE ua.is_active = 1", { type: QueryTypes.SELECT });
+    }
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.get('/api/routines', async (_req, res) => {
   try {
     const routines = await listRoutines();
@@ -56,8 +81,9 @@ app.get('/api/routines', async (_req, res) => {
 
 app.get('/api/routines/:name/example', async (req, res) => {
   const role = req.query.role || 'super_admin';
+  const username = req.query.username;
   try {
-    const data = await buildRoutineExample(req.params.name, role);
+    const data = await buildRoutineExample(req.params.name, role, username);
     res.json({ role, routine: req.params.name, params: data.params });
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -66,9 +92,10 @@ app.get('/api/routines/:name/example', async (req, res) => {
 
 app.post('/api/routines/:name/execute', async (req, res) => {
   const role = req.query.role || 'super_admin';
+  const username = req.query.username;
   const { params } = req.body || {};
   try {
-    const data = await executeRoutine(req.params.name, role, params || {});
+    const data = await executeRoutine(req.params.name, role, params || {}, username);
     res.json({ role, routine: req.params.name, ...data });
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -77,6 +104,7 @@ app.post('/api/routines/:name/execute', async (req, res) => {
 
 app.put('/api/objects/:name', async (req, res) => {
   const role = req.query.role || 'super_admin';
+  const username = req.query.username;
   const objectName = sanitizeIdentifier(req.params.name);
   if (!objectName) {
     return res.status(400).json({ message: 'Invalid object name' });
@@ -97,7 +125,7 @@ app.put('/api/objects/:name', async (req, res) => {
     }
 
     await sequelize.transaction(async (transaction) => {
-      await setRole(role, transaction);
+      await setRole(role, transaction, username);
 
       const columns = await sequelize.query(
         `SELECT column_name AS name
@@ -163,6 +191,7 @@ app.get('/api/menu', async (req, res) => {
 
 app.get('/api/objects/:name', async (req, res) => {
   const role = req.query.role || 'super_admin';
+  const username = req.query.username;
   const objectName = sanitizeIdentifier(req.params.name);
   const page = Number(req.query.page || 1);
   const pageSize = Number(req.query.pageSize || 20);
@@ -183,7 +212,7 @@ app.get('/api/objects/:name', async (req, res) => {
     const displayName = await displayNameFor(objectName);
 
     await sequelize.transaction(async (transaction) => {
-      await setRole(role, transaction);
+      await setRole(role, transaction, username);
 
       const columns = await sequelize.query(
         `SELECT column_name AS name, data_type AS dataType, is_nullable AS isNullable, column_key AS columnKey, column_comment AS columnComment,
@@ -508,6 +537,7 @@ async function buildInsertExample(objectName, transaction) {
 
 app.get('/api/objects/:name/example', async (req, res) => {
   const role = req.query.role || 'super_admin';
+  const username = req.query.username;
   const objectName = sanitizeIdentifier(req.params.name);
 
   if (!objectName) {
@@ -525,7 +555,7 @@ app.get('/api/objects/:name/example', async (req, res) => {
     }
 
     await sequelize.transaction(async (transaction) => {
-      await setRole(role, transaction);
+      await setRole(role, transaction, username);
       const example = await buildInsertExample(objectName, transaction);
       res.json({ role, object: objectName, example });
     });
@@ -536,6 +566,7 @@ app.get('/api/objects/:name/example', async (req, res) => {
 
 app.post('/api/objects/:name', async (req, res) => {
   const role = req.query.role || 'super_admin';
+  const username = req.query.username;
   const objectName = sanitizeIdentifier(req.params.name);
   const { data } = req.body || {};
 
@@ -557,7 +588,7 @@ app.post('/api/objects/:name', async (req, res) => {
     }
 
     await sequelize.transaction(async (transaction) => {
-      await setRole(role, transaction);
+      await setRole(role, transaction, username);
 
       const columns = await sequelize.query(
         `SELECT column_name AS name

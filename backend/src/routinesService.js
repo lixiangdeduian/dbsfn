@@ -468,13 +468,13 @@ async function listRoutines() {
   }));
 }
 
-async function buildRoutineExample(name, roleName) {
+async function buildRoutineExample(name, roleName, username = null) {
   const routine = getRoutine(name);
   if (!routine) {
     throw new Error('未知的例程名称');
   }
   return sequelize.transaction(async (transaction) => {
-    await setRole(roleName || 'super_admin', transaction);
+    await setRole(roleName || 'super_admin', transaction, username);
     if (!routine.exampleBuilder) {
       return { params: defaultExampleFromParams(routine.params) };
     }
@@ -483,7 +483,7 @@ async function buildRoutineExample(name, roleName) {
   });
 }
 
-async function executeRoutine(name, roleName, payload) {
+async function executeRoutine(name, roleName, payload, username = null) {
   const routine = getRoutine(name);
   if (!routine) {
     throw new Error('未知的例程名称');
@@ -492,7 +492,7 @@ async function executeRoutine(name, roleName, payload) {
   const outParams = normalizeOutputs(routine.outputs).map((o) => o.name);
 
   return sequelize.transaction(async (transaction) => {
-    await setRole(roleName || 'super_admin', transaction);
+    await setRole(roleName || 'super_admin', transaction, username);
     const placeholders = [
       ...routine.params.map((p) => `:${p.name}`),
       ...outParams.map((o) => `@${o}`)

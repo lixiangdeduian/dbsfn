@@ -6,6 +6,12 @@
 -- - “当前员工”规则：假设 DB 用户名 = user_account.username（去掉 @host）。
 -- =========================
 
+DROP FUNCTION IF EXISTS f_current_username;
+CREATE FUNCTION f_current_username() RETURNS VARCHAR(128) CHARSET utf8mb4
+DETERMINISTIC
+READS SQL DATA
+RETURN @current_username;
+
 -- 当前登录员工（来源：user_account + staff + staff_department + department）
 CREATE OR REPLACE SQL SECURITY DEFINER VIEW v_current_staff
 AS
@@ -25,7 +31,11 @@ LEFT JOIN staff_department sd ON sd.staff_id = s.staff_id AND sd.is_primary = 1
 LEFT JOIN department d ON d.department_id = sd.department_id
 WHERE ua.is_active = 1
   AND ua.staff_id IS NOT NULL
-  AND ua.username = SUBSTRING_INDEX(USER(), '@', 1);
+  AND (
+    (f_current_username() IS NOT NULL AND ua.username = f_current_username() COLLATE utf8mb4_0900_ai_ci)
+    OR
+    (f_current_username() IS NULL AND ua.username = SUBSTRING_INDEX(USER(), '@', 1))
+  );
 
 -- 当前员工所在科室列表（来源：staff_department + department）
 CREATE OR REPLACE SQL SECURITY DEFINER VIEW v_current_staff_departments

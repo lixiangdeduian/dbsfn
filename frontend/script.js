@@ -1,6 +1,8 @@
 const state = {
   roles: [],
   role: null,
+  users: [],
+  user: null,
   menu: [],
   selected: null,
   page: 1,
@@ -19,6 +21,8 @@ const state = {
 const dom = {
   roleDisplay: document.getElementById('roleDisplay'),
   roleOptions: document.getElementById('roleOptions'),
+  userDisplay: document.getElementById('userDisplay'),
+  userOptions: document.getElementById('userOptions'),
   menu: document.getElementById('menu'),
   accessFlag: document.getElementById('accessFlag'),
   columns: document.getElementById('columns'),
@@ -43,7 +47,9 @@ const dom = {
 };
 
 async function fetchJson(url, options) {
-  const res = await fetch(url, options);
+  const separator = url.includes('?') ? '&' : '?';
+  const urlWithUser = url + separator + 'username=' + encodeURIComponent(state.user || '');
+  const res = await fetch(urlWithUser, options);
   if (!res.ok) {
     const text = await res.text();
     try {
@@ -88,6 +94,7 @@ function renderRoleOptions() {
       toggleRoleOptions(false);
       dom.roleDisplay.textContent = role;
       state.page = 1;
+      await loadUsers(state.role);
       await loadMenu(state.role);
     });
     dom.roleOptions.appendChild(option);
@@ -228,6 +235,7 @@ async function loadRoles() {
     state.roles = data.roles || [];
     state.role = state.roles.includes('super_admin') ? 'super_admin' : state.roles[0];
     renderRoleOptions();
+    await loadUsers(state.role);
     await loadMenu(state.role);
   } catch (err) {
     showNotification(err.message);
@@ -257,6 +265,58 @@ async function loadMenu(role) {
   }
 }
 
+async function loadUsers(role) {
+  try {
+    // Avoid recursion if fetchJson appends user, but here we want to fetch users list.
+    // It's fine if we send empty username or old username when fetching users list.
+    // However, fetching users list shouldn't depend on selected user?
+    // Actually, fetchJson appends username, but backend /api/users doesn't use it (except for setRole maybe? No, /api/users implementation doesn't call setRole).
+    // So it's safe.
+    const data = await fetchJson(`/api/users?role=${encodeURIComponent(role)}`);
+    state.users = data.users || [];
+    
+    // 首次访问时候就已经预填了了用户设置 (Pre-fill user setting)
+    const savedUser = localStorage.getItem(`last_user_${role}`);
+    if (savedUser && state.users.find(u => u.username === savedUser)) {
+        state.user = savedUser;
+    } else if (state.users.length > 0) {
+        state.user = state.users[0].username;
+    } else {
+        state.user = null;
+    }
+    renderUserOptions();
+  } catch (err) {
+    showNotification(err.message);
+  }
+}
+
+function renderUserOptions() {
+  dom.userOptions.innerHTML = '';
+  state.users.forEach((user) => {
+    const option = document.createElement('div');
+    option.className = 'role-option';
+    option.textContent = `${user.name} (${user.username})`;
+    option.addEventListener('click', async () => {
+      state.user = user.username;
+      localStorage.setItem(`last_user_${state.role}`, state.user);
+      toggleUserOptions(false);
+      dom.userDisplay.textContent = `${user.name} (${user.username})`;
+      // Reload current view
+      if (state.selected) {
+        loadObject(state.selected, 1);
+      }
+    });
+    dom.userOptions.appendChild(option);
+  });
+  
+  const currentUser = state.users.find(u => u.username === state.user);
+  dom.userDisplay.textContent = currentUser ? `${currentUser.name} (${currentUser.username})` : (state.user || '选择用户');
+}
+
+function toggleUserOptions(show) {
+  dom.userOptions.style.display = show ? 'block' : 'none';
+}
+
 async function loadObject(objectName, page = state.page) {
   try {
     state.selectedRow = null;
@@ -280,11 +340,21 @@ function toggleRoleOptions(show) {
 dom.roleDisplay.addEventListener('click', () => {
   const visible = dom.roleOptions.style.display === 'block';
   toggleRoleOptions(!visible);
+  toggleUserOptions(false); // Close other
+});
+
+dom.userDisplay.addEventListener('click', () => {
+  const visible = dom.userOptions.style.display === 'block';
+  toggleUserOptions(!visible);
+  toggleRoleOptions(false); // Close other
 });
 
 document.addEventListener('click', (e) => {
   if (!dom.roleDisplay.contains(e.target) && !dom.roleOptions.contains(e.target)) {
     toggleRoleOptions(false);
+  }
+  if (!dom.userDisplay.contains(e.target) && !dom.userOptions.contains(e.target)) {
+    toggleUserOptions(false);
   }
 });
 
