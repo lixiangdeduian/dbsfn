@@ -473,6 +473,147 @@
     *   `payment_id`: BIGINT UNSIGNED, 原支付记录ID。
     *   `amount`: DECIMAL(12,2), 退款金额。
 
+### 4.8 E-R图
+
+本系统按照业务模块划分，共设计了7个实体-关系模型图 (E-R Diagram)。E-R图清晰地展示了各模块内实体之间的关联关系，包括一对一 (1:1)、一对多 (1:N) 和多对多 (M:N) 关系，以及实体的主要属性。以下是各模块的详细E-R图：
+
+#### 4.8.1 组织与人员模块 E-R图
+
+该模块描述了医院的组织架构与人力资源实体关系。核心实体包括 `department`（科室）和 `staff`（员工）。
+
+![组织与人员模块E-R图](database/sql/schema/E-R图/1_org.png)
+
+**关系说明**:
+- `staff` 与 `department`：多对多 (M:N)，支持员工多点执业。
+
+#### 4.8.2 患者与账号模块 E-R图
+
+该模块管理患者身份信息及系统统一认证。`patient` 实体存储患者基本信息，`user_account` 实体实现统一登录认证，可绑定员工或患者。
+
+![患者与账号模块E-R图](database/sql/schema/E-R图/2_patient.png)
+
+**关系说明**:
+- `user_account` 与 `patient`：一对一 (1:1)，患者可拥有一个登录账号。
+- `user_account` 与 `staff`：一对一 (1:1)，员工可拥有一个登录账号。
+- 约束：一个账号只能绑定患者或员工其中之一。
+
+#### 4.8.3 门诊业务模块 E-R图
+
+该模块覆盖门诊全流程，从排班、挂号到就诊诊断。`encounter`（就诊记录）是核心枢纽实体，连接挂号、排班等多个实体。
+
+![门诊业务模块E-R图](database/sql/schema/E-R图/3_outpatient.png)
+
+**关系说明**:
+- `doctor_schedule` 与 `registration`：多对一 (N:1)，一个医生可有多个排班记录。
+- `registration` 与 `encounter`：1对一 (1:1)，一次挂号对应一次就诊。
+- `diagnosis` 与 `encounter`：一对多 (1:N)，一次就诊可有多个诊断。
+
+#### 4.8.4 住院业务模块 E-R图
+
+该模块管理住院部资源与患者住院生命周期。包括病区 (`ward`)、床位 (`bed`)、入院记录 (`admission`) 和床位分配 (`bedassignment`) 等实体。
+
+![住院业务模块E-R图](database/sql/schema/E-R图/4_inpatient.png)
+
+**关系说明**:
+- `bed` 与 `ward`：多对一 (N:1)，床位归属于病区。
+- `bedassignment` 与 `admission`：多对一 (N:1)，一次住院可有多次床位分配（转床）。
+- `bedassignment` 与 `bed`：多对一 (N:1)，一个床位可被多次分配（时间维度）。
+
+#### 4.8.5 药品与处方模块 E-R图
+
+该模块管理药品目录及处方流转。`prescription`（处方）关联就诊记录，通过 `prescription_item` 明细表关联具体药品，`dispense` 记录发药操作。
+
+![药品与处方模块E-R图](database/sql/schema/E-R图/5_pharmacy.png)
+
+**关系说明**:
+- `prescription_item` 与 `prescription`：多对一 (N:1)，一张处方包含多条药品明细。
+- `prescription_item` 与 `drug`：多对一 (N:1)，一种药品可出现在多条明细中。
+- `dispense` 与 `prescription`：一对一 (1:1)，一张处方对应一条发药记录。
+
+#### 4.8.6 检验检查模块 E-R图
+
+该模块管理检验项目定义、检验申请与结果录入。`lab_order`（检验单）通过明细表关联检验项目，`lab_result` 存储具体检验结果。
+
+![检验检查模块E-R图](database/sql/schema/E-R图/6_lab.png)
+
+**关系说明**:
+- `lab_order_item` 与 `lab_order`：多对一 (N:1)，一张检验单包含多个检验项目。
+- `lab_order_item` 与 `lab_test`：多对一 (N:1)，一个检验项目可被多次申请。
+- `lab_result` 与 `lab_order_item`：一对一 (1:1)，每个检验明细对应一条结果记录。
+
+#### 4.8.7 收费与结算模块 E-R图
+
+该模块实现财务闭环，涵盖费用生成、发票管理、支付与退款全流程。`charge`（费用）是最小原子单元，`payment` 和 `refund` 记录资金流动。
+
+![收费与结算模块E-R图](database/sql/schema/E-R图/7_billing.png)
+
+**关系说明**:
+- `payment` 与 `invoice`：多对一 (N:1)，一张发票可有多笔支付。
+- `refund` 与 `payment`：多对一 (N:1)，一笔支付可有多次退款（部分退）。
+
+### 4.9 视图设计
+
+为了简化复杂查询、提高数据安全性以及屏蔽底层表结构差异，本系统设计了多层视图体系。系统共设计了 30+ 个视图，主要分为公共基础视图、患者专用视图和员工业务视图三大类。
+
+#### 4.9.1 公共基础视图 (Public Views)
+此类视图主要用于基础数据的聚合查询，对底层多表 JOIN 进行封装，方便上层业务调用。
+*   **v_patient_public**: 患者公开信息视图。仅包含姓名、性别等非敏感字段，隐藏了身份证号、过敏史等隐私信息。
+*   **v_schedule_public**: 医生排班公开视图。聚合了排班时间、医生姓名、科室名称、挂号费等信息，用于挂号大厅展示。
+*   **v_encounter_summary**: 就诊记录概要视图。关联了患者、医生、科室名称，提供简要的就诊历史列表。
+*   **v_prescription_detail**: 处方明细详情视图。将处方头 (`prescription`) 与处方明细 (`prescription_item`) 及药品信息 (`drug`) 聚合，用于展示完整处方单。
+*   **v_lab_result_detail**: 检验结果详情视图。聚合检验单、检验项目及具体结果值，提供完整的检验报告数据。
+*   **v_invoice_summary**: 发票概要视图。包含发票金额、已付金额及患者信息，用于财务列表展示。
+*   **v_invoice_detail**: 发票明细视图。展示发票包含的具体收费项目详情。
+
+#### 4.9.2 患者专用视图 (Patient Views)
+此类视图利用 `CURRENT_USER()` 函数和权限系统实现行级安全 (Row-Level Security)，确保患者只能查询属于自己的医疗数据。
+*   **v_current_patient**: 当前登录患者档案。自动根据登录账号过滤，返回当前患者的个人详细信息。
+*   **v_patient_my_encounters**: 我的就诊记录。患者查看本人的所有门诊和住院历史。
+*   **v_patient_my_prescriptions**: 我的处方记录。患者查看本人名下的所有处方及药品明细。
+*   **v_patient_my_lab_results**: 我的检验报告。患者查看本人的检验单及结果。
+*   **v_patient_my_invoices**: 我的账单。患者查看本人的发票及支付状态。
+*   **v_patient_my_invoice_details**: 我的账单明细。查看发票具体的收费构成。
+
+#### 4.9.3 员工业务视图 (Staff Views)
+此类视图面向医生、护士、药师等内部员工，根据角色职责提供特定的工作台数据，支持高效的业务处理。
+
+**1. 基础信息与目录**
+*   **v_current_staff**: 当前登录员工信息。返回当前操作员的个人信息及所属科室。
+*   **v_current_staff_departments**: 当前员工科室列表。处理员工多点执业的情况，列出所有归属科室。
+*   **v_drug_catalog_active**: 有效药品目录。仅展示状态为启用的药品，用于开方选择。
+*   **v_lab_test_catalog_active**: 有效检验项目目录。用于开立检验申请。
+*   **v_charge_catalog_active**: 有效收费项目目录。用于收银台补录费用。
+
+**2. 患者信息查询**
+*   **v_patient_reception**: 门诊前台患者视图。包含挂号所需的完整身份信息，但不包含临床敏感数据。
+*   **v_patient_clinical**: 临床医生患者视图。包含过敏史、血型等临床决策支持数据。
+
+**3. 门诊与医生工作台**
+*   **v_registration_detail**: 挂号详情视图。聚合挂号单、患者、排班及医生信息，用于分诊和接诊。
+*   **v_encounter_detail**: 就诊详情视图。医生查看患者的详细就诊上下文。
+*   **v_encounter_diagnosis_detail**: 诊断详情视图。展示就诊记录关联的所有诊断信息。
+*   **v_doctor_my_schedule**: 医生-我的排班。当前登录医生查看自己的出诊计划。
+*   **v_doctor_my_registrations**: 医生-我的挂号。当前医生查看挂靠在自己名下的待诊患者。
+*   **v_doctor_my_encounters**: 医生-我的就诊记录。当前医生查看自己接诊过的历史记录。
+*   **v_doctor_my_encounter_diagnoses**: 医生-我的诊断记录。
+*   **v_doctor_my_prescriptions_detail**: 医生-我的处方记录。
+*   **v_doctor_my_lab_results**: 医生-我的检验结果。
+
+**4. 住院与护理工作台**
+*   **v_inpatient_current**: 在院患者清单。展示当前处于 ADMITTED 状态的患者及其床位信息。
+*   **v_bed_occupancy**: 床位占用总览。以床位为维度，展示全院或科室的床位状态及占用患者。
+*   **v_nurse_my_inpatients**: 护士-我的病区患者。仅展示当前护士所属科室/病区的在院患者。
+
+**5. 医技与药房工作台**
+*   **v_pharmacy_dispense_queue**: 药房待发药队列。列出已审核通过但尚未发药的处方。
+*   **v_pharmacy_dispense_detail**: 药房发药记录详情。
+*   **v_lab_worklist**: 检验工作台。展示待录入或待审核的检验项目明细。
+*   **v_lab_my_items**: 检验-我的任务。仅展示分配给当前技师的检验任务。
+
+**6. 财务工作台**
+*   **v_cashier_unbilled_charges**: 待结费用视图。列出所有未生成发票的原始费用记录，用于收银台结算。
+*   **v_payment_refund_detail**: 支付与退款流水视图。聚合发票、支付、退款记录，提供完整的资金链路追踪。
+
 ## 五、数据库创建和数据加载
 
 本项目的数据库构建采用模块化、脚本化的方式进行，所有 SQL 代码均由版本控制系统管理。构建过程严格遵循“结构定义 (Schema) -> 业务逻辑 (Logic) -> 安全策略 (Security) -> 数据装载 (Seed)”的顺序。
@@ -715,15 +856,42 @@
 *   `trg_encounter_bu_set_end_time`: 就诊关闭时自动填充结束时间。
 *   `trg_admission_bu_discharge_close_bed`: 患者出院时，自动找到其占用的床位并设置 `end_at`，释放资源。
 
-### 5.5 安全性设计
+### 5.5 视图体系实现
+
+本系统不仅在设计阶段规划了视图，更在实现阶段利用 MySQL 的高级特性构建了健壮的视图体系，实现了“逻辑封装”与“安全隔离”的双重目标。
+
+#### 5.5.1 安全性定义 (SQL SECURITY DEFINER)
+所有视图均采用 `CREATE SQL SECURITY DEFINER VIEW` 语法创建。
+*   **原理**: 视图在执行时，会以“定义者 (Definer)”（即数据库管理员）的权限运行，而不是以“调用者 (Invoker)”的权限运行。
+*   **作用**: 这意味着我们可以赋予普通业务角色（如医生、护士）仅访问视图的权限，而无需授予他们访问底层基表（如 `patient`, `staff`）的权限。通过这种方式，彻底隐藏了底层表结构，防止了越权访问。
+
+#### 5.5.2 上下文注入与行级安全
+为了实现“医生只能看自己的病人”、“患者只能查自己的账单”等细粒度权限控制，视图实现中大量使用了上下文注入技术。
+*   **上下文函数**: 创建了 `f_current_username()` 函数，用于获取当前会话绑定的应用层用户名（注入在 `@current_username` 变量中）。
+*   **动态过滤**: 在视图的 `WHERE` 子句中，结合 `CURRENT_USER()` 或 `f_current_username()` 进行动态过滤。
+    ```sql
+    -- 示例：医生工作台视图实现逻辑
+    CREATE VIEW v_doctor_my_encounters AS
+    SELECT ...
+    FROM encounter e
+    JOIN staff s ON s.staff_id = e.doctor_id
+    JOIN user_account ua ON ua.staff_id = s.staff_id
+    WHERE ua.username = f_current_username(); -- 仅返回当前登录医生的记录
+    ```
+
+#### 5.5.3 复杂关联封装
+为了简化应用层开发，视图承担了将高度规范化（3NF）的表结构重新聚合为“宽表”的职责。
+*   **消除 JOIN**: 前端页面通常需要同时展示“患者姓名”、“科室名称”、“医生姓名”等信息，而这些信息分散在 `patient`, `department`, `staff` 等多张表中。通过 `v_encounter_detail` 等视图，预先完成了 5-6 张表的 `LEFT JOIN`，应用层只需执行简单的 `SELECT * FROM view` 即可获取完整数据对象，极大地降低了 SQL 编写难度和出错率。
+
+### 5.6 安全性设计
 
 数据库安全性通过“角色-用户-视图”三层体系实现：
 
 *   **角色体系 (Roles)**: 定义了 `role_doctor`, `role_nurse`, `role_pharmacist` 等 8 种角色，每种角色仅拥有其业务所需的最小权限（Least Privilege）。
-*   **视图隔离 (Views)**: 创建了如 `view_my_encounters` 等视图，结合 `CURRENT_USER()` 动态过滤数据，实现行级安全（Row-Level Security），确保医生只能看到自己的患者。
+*   **视图隔离 (Views)**: 如上所述，视图是权限控制的核心载体。
 *   **权限授予 (Grants)**: 严格限制对基表的直接访问，应用程序主要通过调用存储过程（拥有 `EXECUTE` 权限）来操作数据，从而隐藏底层表结构。
 
-### 5.6 数据加载与测试数据生成
+### 5.7 数据加载与测试数据生成
 
 为了验证系统性能和功能，设计了多层次的数据加载方案：
 
@@ -975,17 +1143,19 @@
 为了提升项目的工程化水平，在开发过程中探索并实践了以下工具和方法：
 
 ### 1. 版本控制 (Git)
-建立了 Git 仓库对项目进行全生命周期管理，并采用 **Feature Branch Workflow** 工作流：
-*   **分支策略**: `main` 分支保持随时可发布状态，所有新功能（如“挂号模块”）都在 `feature/registration` 等独立分支上开发，经测试无误后通过 Pull Request 合并。
-*   **配置管理**: 在 `backend/.gitignore` 中配置了 `node_modules/`、`.env` 等规则，防止依赖包和敏感配置泄露。
-*   **冲突解决**: 针对 SQL 脚本的冲突（多人同时修改 `schema.sql`），约定了“增量更新”原则，即不修改原有 SQL，而是新建 `alter_table_xx.sql` 脚本，避免了大部分合并冲突。
+建立了 Git 仓库对项目进行全生命周期管理，重点解决了多人协作时的代码冲突问题，并保持了提交历史的整洁。
+*   **线性历史**: 采用 `git rebase` 而非 `git merge` 来同步上游代码。当本地分支落后于远程 `main` 分支时，执行 `git pull --rebase`，将本地提交“变基”到最新的远程提交之上，从而避免了无意义的 Merge Commit，保持提交记录如同一条直线般清晰。
+*   **冲突解决**:
+    1.  当 Rebase 过程中出现冲突（如多人修改了同一行 SQL），Git 会暂停变基。
+    2.  使用 IDE (VS Code) 的冲突编辑器，逐行确认保留 "Current Change" 还是 "Incoming Change"，或者手动合并两者。
+    3.  解决冲突后，执行 `git add .` 标记解决，并运行 `git rebase --continue` 继续后续提交的应用，直到变基完成。
 
-### 2. 文档工程化 (Docs as Code)
+### 2. 文档工程化
 摒弃了传统的 Word 文档，全程使用 **Markdown** 编写需求文档 (`task_cursor.md`、`task_frontend.md`等) 和实验报告 (`EXPERIMENT_REPORT.md`)。
 *   **优势**: 文档与代码同库存储，版本同步更新，确保了文档的时效性。
 *   **协作**: 利用 Git 的 Diff 功能，文档的每一次修改（如需求变更）都有迹可循。
 
-### 3. Mock 数据生成 (Data Seeding)
+### 3. Mock 数据生成
 为了验证数据库在万级数据量下的性能，编写了自动化数据生成脚本 `backend/scripts/performance/generate_data.js`。
 
 *   **实现原理**:
@@ -996,6 +1166,16 @@
     *   **批量插入**: 将每 1000 条记录合并为一条 `INSERT` 语句，大幅减少了数据库的 I/O 次数。
     *   **事务控制**: 在导入脚本首尾分别添加 `SET AUTOCOMMIT=0` 和 `COMMIT`，并临时关闭外键检查 (`SET FOREIGN_KEY_CHECKS=0`)，使得 6 万条数据的导入时间控制在秒级。
     *   **配置化**: 通过 `CONFIG` 对象可灵活调整生成规模（如将患者数从 1 万调整至 10 万），便于进行不同量级的压力测试。
+
+## 十一、实验总结
+
+本次实验通过构建一个完整的医院信息管理系统，全面实践了数据库系统的设计与开发流程。
+1.  **理论与实践结合**: 将 E-R 建模、范式理论（3NF）应用于复杂的医疗业务场景，设计出结构严谨的数据库模型。
+2.  **全栈开发体验**: 从后端存储过程的编写到前端动态页面的渲染，打通了“数据库-API-前端”的技术链路，深刻理解了 B/S 架构的工作原理。
+3.  **工程化思维**: 引入了版本控制、自动化测试、Mock 数据生成等工程化手段，不再局限于“写完代码”，而是追求“写好代码”和“交付质量”。
+4.  **问题解决**: 在面对并发冲突（如号源超卖）、权限控制（如数据隔离）等挑战时，学会了利用数据库的事务、锁机制和视图技术来从底层解决问题，体现了“胖数据库”设计理念的优势。
+
+通过本次大作业，不仅掌握了 MySQL 的高级特性，更提升了系统分析与解决实际问题的综合能力。
 
 通过这些工程化实践，不仅完成了一个功能可用的系统，更模拟了真实软件工程中的开发协作与性能调优过程。
 
